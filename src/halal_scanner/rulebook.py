@@ -14,8 +14,8 @@ class RuleEntry:
     """One ingredient ruling from the knowledge base."""
     key: str
     nature: str                      # always_halal | always_haram | source_dependent
-    reason: str
-    citation: str
+    reason: str = ""
+    citation: str = ""
     default: str = "shubhah"
     synonyms: list[str] = field(default_factory=list)
     halal_if: list[str] = field(default_factory=list)
@@ -60,20 +60,29 @@ class Rulebook:
         return cls(entries)
 
     def lookup(self, text: str) -> RuleEntry | None:
-        """Find the ruling for normalized `text`.
+        """Find the ruling for a SINGLE normalized ingredient string.
 
-        Tries exact term match first, then word-subset match (every word of
-        a term appears in the text), preferring the longest matching term.
+        Contract: `text` is expected to be ONE ingredient (already passed
+        through `normalize`), e.g. "gelatin" or "pork gelatin" — not a whole
+        comma-separated ingredient list. Splitting a list into individual
+        ingredients is the caller's responsibility (an upstream concern).
+
+        Matching: exact term match first; otherwise a word-subset match where
+        every word of an indexed term must appear among the text's tokens.
+        When several terms match, the most SPECIFIC wins — most words, then
+        longest, then alphabetical — so "pork gelatin" resolves to the
+        `gelatin` entry (whose haram_if then flags the pork source), rather
+        than the bare `pork` entry. The winner is deterministic regardless of
+        rulebook ordering.
         """
         if text in self._index:
             return self._index[text]
         tokens = set(text.split())
-        best_len = -1
-        best: RuleEntry | None = None
-        for term, entry in self._index.items():
-            term_tokens = term.split()
-            if all(t in tokens for t in term_tokens):
-                if len(term) > best_len:
-                    best_len = len(term)
-                    best = entry
-        return best
+        matches = [
+            term for term in self._index
+            if all(word in tokens for word in term.split())
+        ]
+        if not matches:
+            return None
+        winner = max(matches, key=lambda t: (len(t.split()), len(t), t))
+        return self._index[winner]

@@ -42,3 +42,11 @@ def test_malformed_yaml_raises(tmp_path):
     bad.write_text("not: [a, valid, mapping\n", encoding="utf-8")
     with pytest.raises(ValueError):
         Rulebook.load_from(bad)
+
+
+def test_ruleentry_minimal_construction():
+    # reason and citation are optional; only key and nature are required.
+    e = RuleEntry(key="x", nature="always_halal")
+    assert e.reason == ""
+    assert e.citation == ""
+    assert e.synonyms == []
