@@ -1,0 +1,100 @@
+# Each entry key is a canonical (normalized) ingredient name.
+# nature: always_halal | always_haram | source_dependent
+# For source_dependent: halal_if / haram_if list keywords that resolve the doubt;
+# if none are present in the ingredient text, the result is `default` (shubhah).
+
+sugar:
+  nature: always_halal
+  reason: "Plant-derived; no prohibited pathway."
+  citation: "General"
+
+salt:
+  nature: always_halal
+  reason: "Mineral; no prohibited pathway."
+  citation: "General"
+
+water:
+  nature: always_halal
+  reason: "No prohibited pathway."
+  citation: "General"
+
+soy lecithin:
+  nature: always_halal
+  synonyms: [lecithin, e322]
+  reason: "Commonly soy-derived emulsifier; plant origin."
+  citation: "JAKIM MS1500:2009"
+
+lard:
+  nature: always_haram
+  reason: "Rendered pork fat."
+  citation: "JAKIM MS1500:2009"
+
+pork:
+  nature: always_haram
+  synonyms: [porcine, swine, bacon, ham]
+  reason: "Pig and pig derivatives are prohibited."
+  citation: "JAKIM MS1500:2009"
+
+blood:
+  nature: always_haram
+  reason: "Flowing blood is prohibited."
+  citation: "JAKIM MS1500:2009"
+
+ethanol:
+  nature: always_haram
+  synonyms: [alcohol]
+  reason: "Intoxicant added as an ingredient."
+  citation: "JAKIM MS1500:2009"
+
+gelatin:
+  nature: source_dependent
+  default: shubhah
+  synonyms: [gelatine, e441]
+  halal_if: [fish, plant, "halal beef", "halal certified", bovine halal]
+  haram_if: [pork, porcine, swine, lard]
+  reason: "Animal collagen; permissibility depends on the animal and slaughter. Source not disclosed."
+  citation: "JAKIM MS1500:2009"
+
+rennet:
+  nature: source_dependent
+  default: shubhah
+  halal_if: [microbial, vegetable, plant, "halal certified"]
+  haram_if: [pork, porcine, swine]
+  reason: "Enzyme for cheese-making; may be animal-derived. Source not disclosed."
+  citation: "JAKIM MS1500:2009"
+
+diglycerides:
+  nature: source_dependent
+  default: shubhah
+  synonyms: [e471, "mono diglycerides", monoglycerides, "mono and diglycerides"]
+  halal_if: [vegetable, plant, soy, palm]
+  haram_if: [pork, porcine, lard]
+  reason: "Emulsifier from fat; fat may be animal or plant. Source not disclosed."
+  citation: "JAKIM MS1500:2009"
+
+glycerin:
+  nature: source_dependent
+  default: shubhah
+  synonyms: [glycerine, glycerol, e422]
+  halal_if: [vegetable, plant, synthetic]
+  haram_if: [pork, porcine, lard]
+  reason: "May be animal-fat-derived. Source not disclosed."
+  citation: "JAKIM MS1500:2009"
+
+l cysteine:
+  nature: source_dependent
+  default: shubhah
+  synonyms: [cysteine, e920]
+  halal_if: [synthetic, microbial, "from feathers"]
+  haram_if: ["human hair", pork]
+  reason: "Amino acid; may be from hair/feathers. Source not disclosed."
+  citation: "JAKIM MS1500:2009"
+
+carmine:
+  nature: source_dependent
+  default: shubhah
+  synonyms: [cochineal, e120, "carminic acid"]
+  halal_if: []
+  haram_if: []
+  reason: "Insect-derived colour; scholars differ. Treated as doubtful."
+  citation: "JAKIM MS1500:2009"
