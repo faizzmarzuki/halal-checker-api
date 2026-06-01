@@ -59,6 +59,32 @@ class VerdictOut(BaseModel):
         )
 
 
+class ScanBarcodeRequest(BaseModel):
+    """Body for POST /scan-barcode."""
+    # min_length=1 => an empty barcode is rejected with HTTP 422 automatically.
+    barcode: str = Field(..., min_length=1)
+    use_gemma: bool = True
+
+
+class BarcodeVerdictOut(VerdictOut):
+    """Response for POST /scan-barcode: a verdict plus the scanned product context."""
+    barcode: str
+    product_name: str
+
+    @classmethod
+    def from_verdict_and_product(
+        cls, v: ScanVerdict, barcode: str, product_name: str
+    ) -> "BarcodeVerdictOut":
+        return cls(
+            verdict=v.verdict.value,
+            ingredients=[IngredientOut.from_result(r) for r in v.ingredients],
+            summary=v.summary,
+            disclaimer=v.disclaimer,
+            barcode=barcode,
+            product_name=product_name,
+        )
+
+
 class HealthOut(BaseModel):
     """Response for GET /health."""
     status: str
