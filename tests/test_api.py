@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from halal_scanner.api.app import app
+from halal_scanner.openfoodfacts import Product
 
 client = TestClient(app)
 
@@ -44,6 +47,35 @@ def test_classify_includes_disclaimer():
 
 def test_classify_empty_list_rejected():
     resp = client.post("/classify", json={"ingredients": []})
+    assert resp.status_code == 422
+
+
+@patch("halal_scanner.api.app._off_client.fetch")
+def test_scan_barcode_classifies_product(mock_fetch):
+    mock_fetch.return_value = Product(
+        barcode="3017620422003",
+        name="Nutella",
+        ingredients=["sugar", "lard"],
+        raw_text="sugar, lard",
+    )
+    resp = client.post("/scan-barcode", json={"barcode": "3017620422003"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["barcode"] == "3017620422003"
+    assert body["product_name"] == "Nutella"
+    # worst-status-wins: lard is haram.
+    assert body["verdict"] == "haram"
+
+
+@patch("halal_scanner.api.app._off_client.fetch", return_value=None)
+def test_scan_barcode_not_found_returns_404(mock_fetch):
+    resp = client.post("/scan-barcode", json={"barcode": "0000000000000"})
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()
+
+
+def test_scan_barcode_empty_barcode_rejected():
+    resp = client.post("/scan-barcode", json={"barcode": ""})
     assert resp.status_code == 422
 
 
