@@ -21,7 +21,7 @@ class GemmaClient:
     def __init__(
         self,
         host: str = "http://localhost:11434",
-        model: str = "gemma3:4b",
+        model: str = "gemma4:latest",
         timeout: int = 30,
     ):
         self.host = host
