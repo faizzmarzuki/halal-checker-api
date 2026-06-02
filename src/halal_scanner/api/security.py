@@ -1,9 +1,10 @@
-"""Optional API-key auth and in-memory rate limiting for the API.
+"""DB-backed API-key auth and in-memory rate limiting for the API.
 
-Both are disabled by default and configured purely via environment variables, so
-local/dev use and the test suite are unaffected unless explicitly turned on:
+Scanning endpoints (`/classify`, `/scan-barcode`, `/scan-image`) require a valid
+`X-API-Key` that maps to a non-revoked key in the database (created via `/keys`).
+There is no "auth off" mode: a valid key is always required. Rate limiting stays
+configured by environment variables and is disabled by default.
 
-- ``HALAL_API_KEYS``   comma-separated allowed keys. Unset/empty => auth off.
 - ``HALAL_RATE_LIMIT`` max requests per window (int). Unset/0 => limiting off.
 - ``HALAL_RATE_WINDOW`` window length in seconds (float, default 60).
 """
@@ -15,21 +16,19 @@ import time
 from collections import defaultdict, deque
 from typing import Callable
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from ..auth.keys import verify_key
+from ..db import get_db
 
 
-def _configured_api_keys() -> set[str]:
-    """Read allowed API keys from the environment, live, on each call."""
-    raw = os.environ.get("HALAL_API_KEYS", "")
-    return {key.strip() for key in raw.split(",") if key.strip()}
-
-
-def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
-    """Dependency: enforce a valid X-API-Key when any keys are configured."""
-    keys = _configured_api_keys()
-    if not keys:
-        return  # auth disabled
-    if x_api_key not in keys:
+def require_api_key(
+    x_api_key: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> None:
+    """Dependency: require a valid, non-revoked DB API key in X-API-Key."""
+    if not x_api_key or verify_key(db, x_api_key) is None:
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
