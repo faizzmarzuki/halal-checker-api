@@ -1,11 +1,24 @@
 from unittest.mock import patch
 
+import pytest
+
+from halal_scanner.api.security import require_api_key
+
 from fastapi.testclient import TestClient
 
 from halal_scanner.api.app import app
 from halal_scanner.openfoodfacts import Product
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_api_key():
+    # Scanning auth is now always-on and DB-backed; these tests aren't about
+    # auth, so bypass the key check and restore it afterward.
+    app.dependency_overrides[require_api_key] = lambda: None
+    yield
+    app.dependency_overrides.pop(require_api_key, None)
 
 
 def test_classify_haram():
@@ -114,22 +127,6 @@ def test_classify_no_translation_by_default_does_not_call_translator():
         resp = client.post("/classify", json={"ingredients": ["sugar"]})
         assert resp.status_code == 200
         mock_tr.assert_not_called()
-
-
-def test_auth_required_when_keys_configured():
-    with patch.dict("os.environ", {"HALAL_API_KEYS": "secret"}):
-        # No key -> 401.
-        resp = client.post("/classify", json={"ingredients": ["sugar"]})
-        assert resp.status_code == 401
-        # Correct key -> 200.
-        resp = client.post(
-            "/classify",
-            json={"ingredients": ["sugar"]},
-            headers={"X-API-Key": "secret"},
-        )
-        assert resp.status_code == 200
-        # /health stays open even with auth configured.
-        assert client.get("/health").status_code == 200
 
 
 def test_rate_limit_returns_429_when_exceeded():
