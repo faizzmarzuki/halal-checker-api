@@ -63,6 +63,12 @@ def test_classify_empty_list_rejected():
     assert resp.status_code == 422
 
 
+def test_classify_blank_ingredient_string_rejected():
+    # The per-item StringConstraints(min_length=1) rejects blank strings.
+    resp = client.post("/classify", json={"ingredients": [""]})
+    assert resp.status_code == 422
+
+
 @patch("halal_scanner.api.app._off_client.fetch")
 def test_scan_barcode_classifies_product(mock_fetch):
     mock_fetch.return_value = Product(
