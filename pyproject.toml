@@ -8,6 +8,10 @@ dependencies = [
     "requests>=2.31",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.27",
+    "sqlalchemy>=2.0",
+    "pyjwt>=2.8",
+    "argon2-cffi>=23.1",
+    "email-validator>=2.0",
 ]
 
 [project.optional-dependencies]
