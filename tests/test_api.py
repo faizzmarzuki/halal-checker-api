@@ -192,3 +192,13 @@ def test_security_headers_present():
     assert resp.headers["x-content-type-options"] == "nosniff"
     assert resp.headers["x-frame-options"] == "DENY"
     assert resp.headers["referrer-policy"] == "no-referrer"
+
+
+def test_classify_rejects_unexpected_field():
+    resp = client.post("/classify", json={"ingredients": ["sugar"], "foo": 1})
+    assert resp.status_code == 422
+
+
+def test_scan_barcode_rejects_unexpected_field():
+    resp = client.post("/scan-barcode", json={"barcode": "0123456789", "foo": 1})
+    assert resp.status_code == 422
