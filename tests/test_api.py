@@ -185,3 +185,10 @@ def test_scan_image_too_large_returns_413():
     resp = client.post("/scan-image", content=big)
     assert resp.status_code == 413
     assert "too large" in resp.json()["detail"].lower()
+
+
+def test_security_headers_present():
+    resp = client.get("/health")
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["x-frame-options"] == "DENY"
+    assert resp.headers["referrer-policy"] == "no-referrer"

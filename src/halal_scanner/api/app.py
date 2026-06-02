@@ -41,6 +41,16 @@ app = FastAPI(
 )
 
 
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    """Set baseline security headers on every response (L-1)."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
 # Fail closed: refuse to start without a signing secret (see security spec).
 if not os.environ.get("HALAL_JWT_SECRET"):
     raise RuntimeError("HALAL_JWT_SECRET must be set to start the API.")
