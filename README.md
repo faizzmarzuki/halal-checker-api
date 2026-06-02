@@ -79,6 +79,19 @@ enumeration); the raw token is in the email body.
 | POST   | `/auth/password-reset/request`  | `{email}`                  | `200`; sends a reset token. |
 | POST   | `/auth/password-reset/confirm`  | `{token, new_password}`    | `204`; resets the password and revokes all refresh tokens. `400` if bad. |
 
+### Admin & audit (Sub-project 10)
+
+Users whose email is in `HALAL_ADMIN_EMAILS` (comma-separated) are created with
+the `admin` role. Admin endpoints need a JWT for an admin user.
+
+| Method | Path            | Notes |
+|--------|-----------------|-------|
+| GET    | `/admin/users`  | List all users. `403` for non-admins. |
+| GET    | `/admin/audit`  | Recent audit entries (newest first). `403` for non-admins. |
+
+Audit entries are recorded for `user.register`, `auth.login`,
+`auth.login_failed`, `auth.logout`, `key.create`, and `key.revoke`.
+
 ## Configuration (environment variables)
 
 | Var | Default | Effect |
@@ -89,6 +102,7 @@ enumeration); the raw token is in the email body.
 | `HALAL_JWT_SECRET` | _(required)_ | HS256 signing secret. The API **will not start** without it. |
 | `HALAL_ACCESS_TTL` | `900`     | Access-token lifetime, seconds. |
 | `HALAL_REFRESH_TTL`| `604800`  | Refresh-token lifetime, seconds. |
+| `HALAL_ADMIN_EMAILS` | _(unset)_ | Comma-separated emails that register as `admin`. |
 
 The scanning endpoints (`/classify`, `/scan-barcode`, `/scan-image`) **always**
 require a valid `X-API-Key` (a key you create at `/keys`); `/health` is open.
