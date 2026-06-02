@@ -169,3 +169,12 @@ def test_classify_at_limits_accepted():
         json={"ingredients": ["x" * 200] * 200, "use_gemma": False},
     )
     assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["abc", "0000/../../../admin?x=#", "@evil.com/path", "12345", "1" * 15],
+)
+def test_scan_barcode_invalid_rejected(bad):
+    resp = client.post("/scan-barcode", json={"barcode": bad})
+    assert resp.status_code == 422

@@ -73,8 +73,9 @@ class VerdictOut(BaseModel):
 
 class ScanBarcodeRequest(BaseModel):
     """Body for POST /scan-barcode."""
-    # min_length=1 => an empty barcode is rejected with HTTP 422 automatically.
-    barcode: str = Field(..., min_length=1)
+    # A real barcode is 6-14 digits. Anything else (letters, path traversal,
+    # URL tricks) is rejected with HTTP 422 before any outbound call (HIGH-3).
+    barcode: str = Field(..., pattern=r"^[0-9]{6,14}$")
     use_gemma: bool = True
     # When true, translate the product's ingredients to English before classifying.
     translate: bool = False
