@@ -8,16 +8,18 @@ Run locally:
 from __future__ import annotations
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
+from ..ocr import OcrEngine, parse_ingredients
 from ..openfoodfacts import OpenFoodFactsClient
 from ..rulebook import Rulebook
 from .schemas import (
     BarcodeVerdictOut,
     ClassifyRequest,
     HealthOut,
+    ImageVerdictOut,
     ScanBarcodeRequest,
     VerdictOut,
 )
@@ -33,6 +35,7 @@ app = FastAPI(
 _rulebook = Rulebook.load_default()
 _gemma_client = GemmaClient()
 _off_client = OpenFoodFactsClient()
+_ocr_engine = OcrEngine()
 
 
 @app.post("/classify", response_model=VerdictOut)
@@ -61,6 +64,23 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
     return BarcodeVerdictOut.from_verdict_and_product(
         verdict, barcode=product.barcode, product_name=product.name
     )
+
+
+@app.post("/scan-image", response_model=ImageVerdictOut)
+async def scan_image(request: Request, use_gemma: bool = True) -> ImageVerdictOut:
+    """OCR a label image (sent as the raw request body), then classify it."""
+    image_bytes = await request.body()
+    text = _ocr_engine.extract_text(image_bytes)
+    ingredients = parse_ingredients(text)
+    if not ingredients:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not read any text from the image.",
+        )
+    client = _gemma_client if use_gemma else None
+    engine = HalalClassifier(_rulebook, gemma_client=client)
+    verdict = engine.classify(ingredients)
+    return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
 
 @app.get("/health", response_model=HealthOut)

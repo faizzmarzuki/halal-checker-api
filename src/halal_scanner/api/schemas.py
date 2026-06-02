@@ -85,6 +85,23 @@ class BarcodeVerdictOut(VerdictOut):
         )
 
 
+class ImageVerdictOut(VerdictOut):
+    """Response for POST /scan-image: a verdict plus the text OCR read."""
+    extracted_text: str
+
+    @classmethod
+    def from_verdict_and_text(
+        cls, v: ScanVerdict, extracted_text: str
+    ) -> "ImageVerdictOut":
+        return cls(
+            verdict=v.verdict.value,
+            ingredients=[IngredientOut.from_result(r) for r in v.ingredients],
+            summary=v.summary,
+            disclaimer=v.disclaimer,
+            extracted_text=extracted_text,
+        )
+
+
 class HealthOut(BaseModel):
     """Response for GET /health."""
     status: str
