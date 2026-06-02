@@ -54,11 +54,22 @@ stored (hashed) server-side and rotated on every refresh, so logout revokes them
 | POST   | `/auth/logout`   | `{"refresh_token"}`           | `204`; revokes the refresh token. |
 | GET    | `/auth/me`       | `Authorization: Bearer <jwt>` | Current user. `401` if missing/invalid. |
 
+### API keys (Sub-project 8)
+
+Log in (JWT), then manage keys. The raw key is shown **once** at creation.
+
+| Method | Path          | Body      | Notes |
+|--------|---------------|-----------|-------|
+| POST   | `/keys`       | `{name?}` | `201`; returns the raw `api_key` once. |
+| GET    | `/keys`       | —         | List your keys (metadata only, no raw value). |
+| DELETE | `/keys/{id}`  | —         | `204`; revokes the key. `404` if not yours. |
+
+Use a key by sending `X-API-Key: <key>` to the scanning endpoints.
+
 ## Configuration (environment variables)
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `HALAL_API_KEYS`   | _(unset)_ | Comma-separated allowed keys. Unset => auth **off**. When set, send `X-API-Key`. |
 | `HALAL_RATE_LIMIT` | `0`       | Max requests per window. `0` => limiting **off**. |
 | `HALAL_RATE_WINDOW`| `60`      | Rate-limit window, seconds. |
 | `HALAL_DATABASE_URL` | `sqlite:///./halal_scanner.db` | SQLAlchemy connection string for the accounts DB. |
@@ -66,10 +77,10 @@ stored (hashed) server-side and rotated on every refresh, so logout revokes them
 | `HALAL_ACCESS_TTL` | `900`     | Access-token lifetime, seconds. |
 | `HALAL_REFRESH_TTL`| `604800`  | Refresh-token lifetime, seconds. |
 
-Auth (`X-API-Key`) and rate limiting guard `/classify`, `/scan-barcode`, and
-`/scan-image`; `/health` is always open. The `/auth/*` account endpoints use
-JWT bearer tokens (separate from the `X-API-Key` mechanism) and require
-`HALAL_JWT_SECRET` to be set.
+The scanning endpoints (`/classify`, `/scan-barcode`, `/scan-image`) **always**
+require a valid `X-API-Key` (a key you create at `/keys`); `/health` is open.
+The `/auth/*` and `/keys` endpoints use JWT bearer tokens and require
+`HALAL_JWT_SECRET`. Rate limiting (env vars above) still applies.
 
 ## Install & run
 
