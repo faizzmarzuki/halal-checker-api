@@ -12,9 +12,8 @@ import os
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Request
 
-from ..auth import router as auth_router
+from ..auth import router as auth_router  # also registers the ORM models
 from ..db import Base, engine
-from .. import auth as _auth_pkg  # noqa: F401  ensures models are registered
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
