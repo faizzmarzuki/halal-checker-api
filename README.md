@@ -41,6 +41,19 @@ The project was built in six sub-projects (specs in `docs/superpowers/specs/`):
 - `translate` (default `false`): translate each ingredient to English (via the
   local Ollama server) before classifying.
 
+### Accounts (Sub-project 7)
+
+User accounts with JWT auth. Access tokens are short-lived; refresh tokens are
+stored (hashed) server-side and rotated on every refresh, so logout revokes them.
+
+| Method | Path             | Body / input                  | Notes |
+|--------|------------------|-------------------------------|-------|
+| POST   | `/auth/register` | `{"email", "password"}`       | `201`; `409` if email taken; `422` if invalid. |
+| POST   | `/auth/login`    | `{"email", "password"}`       | Returns `{access_token, refresh_token, token_type}`. `401` on bad creds. |
+| POST   | `/auth/refresh`  | `{"refresh_token"}`           | Rotates tokens; the old refresh token is revoked. `401` if invalid. |
+| POST   | `/auth/logout`   | `{"refresh_token"}`           | `204`; revokes the refresh token. |
+| GET    | `/auth/me`       | `Authorization: Bearer <jwt>` | Current user. `401` if missing/invalid. |
+
 ## Configuration (environment variables)
 
 | Var | Default | Effect |
@@ -48,9 +61,15 @@ The project was built in six sub-projects (specs in `docs/superpowers/specs/`):
 | `HALAL_API_KEYS`   | _(unset)_ | Comma-separated allowed keys. Unset => auth **off**. When set, send `X-API-Key`. |
 | `HALAL_RATE_LIMIT` | `0`       | Max requests per window. `0` => limiting **off**. |
 | `HALAL_RATE_WINDOW`| `60`      | Rate-limit window, seconds. |
+| `HALAL_DATABASE_URL` | `sqlite:///./halal_scanner.db` | SQLAlchemy connection string for the accounts DB. |
+| `HALAL_JWT_SECRET` | _(required)_ | HS256 signing secret. The API **will not start** without it. |
+| `HALAL_ACCESS_TTL` | `900`     | Access-token lifetime, seconds. |
+| `HALAL_REFRESH_TTL`| `604800`  | Refresh-token lifetime, seconds. |
 
-Auth and rate limiting guard `/classify`, `/scan-barcode`, and `/scan-image`;
-`/health` is always open.
+Auth (`X-API-Key`) and rate limiting guard `/classify`, `/scan-barcode`, and
+`/scan-image`; `/health` is always open. The `/auth/*` account endpoints use
+JWT bearer tokens (separate from the `X-API-Key` mechanism) and require
+`HALAL_JWT_SECRET` to be set.
 
 ## Install & run
 
