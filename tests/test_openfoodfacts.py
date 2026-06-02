@@ -53,3 +53,22 @@ def test_split_ingredients_splits_strips_and_drops_empties():
         "Palm Oil",
         "Cocoa",
     ]
+
+
+@patch("halal_scanner.openfoodfacts.requests.get")
+def test_fetch_encodes_barcode_and_disables_redirects(mock_get):
+    mock_get.return_value = _fake_response(
+        {"status": 1, "product": {"product_name": "X", "ingredients_text": "sugar"}}
+    )
+    OpenFoodFactsClient().fetch("3017620422003")
+    args, kwargs = mock_get.call_args
+    assert args[0] == (
+        "https://world.openfoodfacts.org/api/v2/product/3017620422003.json"
+    )
+    assert kwargs["allow_redirects"] is False
+
+
+@patch("halal_scanner.openfoodfacts.requests.get")
+def test_fetch_invalid_barcode_returns_none_without_request(mock_get):
+    assert OpenFoodFactsClient().fetch("0000/../../../admin?x=#") is None
+    mock_get.assert_not_called()

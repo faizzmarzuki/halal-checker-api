@@ -7,9 +7,15 @@ no ingredient list) collapses to ``None``.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import requests
+
+# A real barcode is 6-14 digits. Guard here too (defence in depth): this client
+# is reusable and not guaranteed to sit behind the API's schema validation.
+_BARCODE_RE = re.compile(r"^[0-9]{6,14}$")
 
 
 @dataclass
@@ -43,10 +49,13 @@ class OpenFoodFactsClient:
 
     def fetch(self, barcode: str) -> Product | None:
         """Return a Product for the barcode, or None on any failure."""
+        if not _BARCODE_RE.match(barcode):
+            return None
         try:
             resp = requests.get(
-                f"{self.host}/api/v2/product/{barcode}.json",
+                f"{self.host}/api/v2/product/{quote(barcode, safe='')}.json",
                 timeout=self.timeout,
+                allow_redirects=False,
             )
             resp.raise_for_status()
             payload = resp.json()
