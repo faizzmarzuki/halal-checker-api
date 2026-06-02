@@ -7,8 +7,13 @@ Run locally:
 """
 from __future__ import annotations
 
+import os
+
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Request
+
+from ..auth import router as auth_router  # also registers the ORM models
+from ..db import Base, engine
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
@@ -31,6 +36,16 @@ app = FastAPI(
     description="Classify food ingredients as halal / non-halal (haram) / shubhah.",
     version="0.1.0",
 )
+
+
+# Fail closed: refuse to start without a signing secret (see security spec).
+if not os.environ.get("HALAL_JWT_SECRET"):
+    raise RuntimeError("HALAL_JWT_SECRET must be set to start the API.")
+
+# Create the accounts tables on startup (no-op if they already exist).
+Base.metadata.create_all(bind=engine)
+
+app.include_router(auth_router)
 
 # Built once at import time and reused across requests (loading the rulebook
 # and creating the HTTP client are not free, and they hold no per-request state).
