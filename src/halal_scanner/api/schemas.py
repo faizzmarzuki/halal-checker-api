@@ -16,6 +16,8 @@ class ClassifyRequest(BaseModel):
     # min_length=1 => an empty list is rejected with HTTP 422 automatically.
     ingredients: list[str] = Field(..., min_length=1)
     use_gemma: bool = True
+    # When true, translate each ingredient to English before classifying.
+    translate: bool = False
 
 
 class IngredientOut(BaseModel):
@@ -64,6 +66,8 @@ class ScanBarcodeRequest(BaseModel):
     # min_length=1 => an empty barcode is rejected with HTTP 422 automatically.
     barcode: str = Field(..., min_length=1)
     use_gemma: bool = True
+    # When true, translate the product's ingredients to English before classifying.
+    translate: bool = False
 
 
 class BarcodeVerdictOut(VerdictOut):

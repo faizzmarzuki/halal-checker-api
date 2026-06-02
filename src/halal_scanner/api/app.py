@@ -15,6 +15,7 @@ from ..gemma import GemmaClient
 from ..ocr import OcrEngine, parse_ingredients
 from ..openfoodfacts import OpenFoodFactsClient
 from ..rulebook import Rulebook
+from ..translator import Translator
 from .schemas import (
     BarcodeVerdictOut,
     ClassifyRequest,
@@ -36,6 +37,14 @@ _rulebook = Rulebook.load_default()
 _gemma_client = GemmaClient()
 _off_client = OpenFoodFactsClient()
 _ocr_engine = OcrEngine()
+_translator = Translator()
+
+
+def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
+    """Translate each ingredient to English when enabled; otherwise pass through."""
+    if not enabled:
+        return ingredients
+    return [_translator.to_english(item) for item in ingredients]
 
 
 @app.post("/classify", response_model=VerdictOut)
@@ -45,7 +54,8 @@ def classify(req: ClassifyRequest) -> VerdictOut:
     # making the call fully deterministic and network-free.
     client = _gemma_client if req.use_gemma else None
     engine = HalalClassifier(_rulebook, gemma_client=client)
-    verdict = engine.classify(req.ingredients)
+    ingredients = _translate_all(req.ingredients, req.translate)
+    verdict = engine.classify(ingredients)
     return VerdictOut.from_verdict(verdict)
 
 
@@ -60,14 +70,17 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
         )
     client = _gemma_client if req.use_gemma else None
     engine = HalalClassifier(_rulebook, gemma_client=client)
-    verdict = engine.classify(product.ingredients)
+    ingredients = _translate_all(product.ingredients, req.translate)
+    verdict = engine.classify(ingredients)
     return BarcodeVerdictOut.from_verdict_and_product(
         verdict, barcode=product.barcode, product_name=product.name
     )
 
 
 @app.post("/scan-image", response_model=ImageVerdictOut)
-async def scan_image(request: Request, use_gemma: bool = True) -> ImageVerdictOut:
+async def scan_image(
+    request: Request, use_gemma: bool = True, translate: bool = False
+) -> ImageVerdictOut:
     """OCR a label image (sent as the raw request body), then classify it."""
     image_bytes = await request.body()
     text = _ocr_engine.extract_text(image_bytes)
@@ -79,6 +92,7 @@ async def scan_image(request: Request, use_gemma: bool = True) -> ImageVerdictOu
         )
     client = _gemma_client if use_gemma else None
     engine = HalalClassifier(_rulebook, gemma_client=client)
+    ingredients = _translate_all(ingredients, translate)
     verdict = engine.classify(ingredients)
     return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
