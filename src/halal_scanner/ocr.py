@@ -36,6 +36,13 @@ def _open_image(image_bytes: bytes, max_pixels: int = MAX_IMAGE_PIXELS):
     Image.open is lazy (reads the header only), so width/height are available
     before the pixels are decoded — the check rejects a bomb before any large
     allocation happens.
+
+    Scope of the guard: it checks the canvas dimensions of a single frame.
+    Pillow's own ``Image.MAX_IMAGE_PIXELS`` may also fire first; this is the
+    project-level cap. For animated formats (GIF/APNG) only the per-frame canvas
+    is checked — a many-frame file could exceed the cap in aggregate, but
+    pytesseract OCRs frame 0 only, so that is not a decode-amplification path
+    here.
     """
     import io
 
