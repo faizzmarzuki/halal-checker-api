@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from . import keys as keys_service
+from . import audit, keys as keys_service
 from .dependencies import get_current_user
 from .keys_schemas import ApiKeyCreate, ApiKeyCreated, ApiKeyOut
 from .models import ApiKey, User
@@ -20,6 +20,7 @@ def create_key(
     db: Session = Depends(get_db),
 ) -> ApiKeyCreated:
     row, raw = keys_service.create_key(db, user, req.name)
+    audit.record(db, "key.create", user.id, row.prefix)
     return ApiKeyCreated(
         id=row.id,
         name=row.name,
@@ -48,3 +49,4 @@ def delete_key(
         keys_service.revoke_key(db, user, key_id)
     except keys_service.KeyNotFound:
         raise HTTPException(status_code=404, detail="API key not found.")
+    audit.record(db, "key.revoke", user.id, str(key_id))
