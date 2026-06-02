@@ -96,6 +96,26 @@ def test_scan_image_no_text_returns_422(mock_ocr):
     assert "could not read" in resp.json()["detail"].lower()
 
 
+@patch("halal_scanner.api.app._translator.to_english", side_effect=lambda t: {"tocino": "lard"}.get(t, t))
+def test_classify_with_translation(mock_tr):
+    resp = client.post(
+        "/classify",
+        json={"ingredients": ["tocino"], "translate": True, "use_gemma": False},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["verdict"] == "haram"
+    # The translated string ("lard") is what got classified.
+    assert body["ingredients"][0]["input"] == "lard"
+
+
+def test_classify_no_translation_by_default_does_not_call_translator():
+    with patch("halal_scanner.api.app._translator.to_english") as mock_tr:
+        resp = client.post("/classify", json={"ingredients": ["sugar"]})
+        assert resp.status_code == 200
+        mock_tr.assert_not_called()
+
+
 def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
