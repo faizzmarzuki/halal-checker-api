@@ -8,7 +8,7 @@ Run locally:
 from __future__ import annotations
 
 import requests
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
@@ -16,6 +16,7 @@ from ..ocr import OcrEngine, parse_ingredients
 from ..openfoodfacts import OpenFoodFactsClient
 from ..rulebook import Rulebook
 from ..translator import Translator
+from .security import rate_limit, require_api_key
 from .schemas import (
     BarcodeVerdictOut,
     ClassifyRequest,
@@ -40,6 +41,11 @@ _ocr_engine = OcrEngine()
 _translator = Translator()
 
 
+# Auth + rate limiting guard the scanning endpoints (both off by default; see
+# security.py). /health is intentionally left open for liveness probes.
+_PROTECTED = [Depends(require_api_key), Depends(rate_limit)]
+
+
 def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
     """Translate each ingredient to English when enabled; otherwise pass through."""
     if not enabled:
@@ -47,7 +53,7 @@ def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
     return [_translator.to_english(item) for item in ingredients]
 
 
-@app.post("/classify", response_model=VerdictOut)
+@app.post("/classify", response_model=VerdictOut, dependencies=_PROTECTED)
 def classify(req: ClassifyRequest) -> VerdictOut:
     """Classify a list of ingredient strings and return an overall verdict."""
     # Honour the per-request switch: None disables the Gemma fallback entirely,
@@ -59,7 +65,7 @@ def classify(req: ClassifyRequest) -> VerdictOut:
     return VerdictOut.from_verdict(verdict)
 
 
-@app.post("/scan-barcode", response_model=BarcodeVerdictOut)
+@app.post("/scan-barcode", response_model=BarcodeVerdictOut, dependencies=_PROTECTED)
 def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
     """Look up a barcode on OpenFoodFacts, then classify its ingredients."""
     product = _off_client.fetch(req.barcode)
@@ -77,7 +83,7 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
     )
 
 
-@app.post("/scan-image", response_model=ImageVerdictOut)
+@app.post("/scan-image", response_model=ImageVerdictOut, dependencies=_PROTECTED)
 async def scan_image(
     request: Request, use_gemma: bool = True, translate: bool = False
 ) -> ImageVerdictOut:

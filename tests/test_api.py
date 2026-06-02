@@ -116,6 +116,32 @@ def test_classify_no_translation_by_default_does_not_call_translator():
         mock_tr.assert_not_called()
 
 
+def test_auth_required_when_keys_configured():
+    with patch.dict("os.environ", {"HALAL_API_KEYS": "secret"}):
+        # No key -> 401.
+        resp = client.post("/classify", json={"ingredients": ["sugar"]})
+        assert resp.status_code == 401
+        # Correct key -> 200.
+        resp = client.post(
+            "/classify",
+            json={"ingredients": ["sugar"]},
+            headers={"X-API-Key": "secret"},
+        )
+        assert resp.status_code == 200
+        # /health stays open even with auth configured.
+        assert client.get("/health").status_code == 200
+
+
+def test_rate_limit_returns_429_when_exceeded():
+    from halal_scanner.api.security import RateLimiter
+
+    with patch("halal_scanner.api.security.limiter", RateLimiter(limit=1, window=60)):
+        first = client.post("/classify", json={"ingredients": ["sugar"]})
+        second = client.post("/classify", json={"ingredients": ["sugar"]})
+        assert first.status_code == 200
+        assert second.status_code == 429
+
+
 def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
