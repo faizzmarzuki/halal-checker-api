@@ -4,3 +4,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.coverage
+
+# Local SQLite databases (created at runtime / in demos)
+*.db
