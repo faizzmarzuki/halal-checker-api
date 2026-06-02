@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 
 from ..auth import router as auth_router  # also registers the ORM models
 from ..auth.keys_router import router as keys_router
+from ..auth.recovery_router import router as recovery_router
 from ..db import Base, engine
 
 from ..classifier import HalalClassifier
@@ -48,6 +49,7 @@ Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_router)
 app.include_router(keys_router)
+app.include_router(recovery_router)
 
 # Built once at import time and reused across requests (loading the rulebook
 # and creating the HTTP client are not free, and they hold no per-request state).
