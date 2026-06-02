@@ -178,3 +178,10 @@ def test_classify_at_limits_accepted():
 def test_scan_barcode_invalid_rejected(bad):
     resp = client.post("/scan-barcode", json={"barcode": bad})
     assert resp.status_code == 422
+
+
+def test_scan_image_too_large_returns_413():
+    big = b"x" * (5 * 1024 * 1024 + 1)
+    resp = client.post("/scan-image", content=big)
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"].lower()
