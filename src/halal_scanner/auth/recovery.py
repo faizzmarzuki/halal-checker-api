@@ -26,6 +26,8 @@ def request_verification(db: Session, email: str) -> None:
 def confirm_verification(db: Session, raw: str) -> None:
     user_id = account_tokens.consume_token(db, raw, "verify")
     user = db.get(User, user_id)
+    if user is None:  # token valid but user gone — treat as a bad token (400)
+        raise account_tokens.AccountTokenError()
     user.is_verified = True
     db.commit()
 
@@ -42,6 +44,8 @@ def request_reset(db: Session, email: str) -> None:
 def confirm_reset(db: Session, raw: str, new_password: str) -> None:
     user_id = account_tokens.consume_token(db, raw, "reset")
     user = db.get(User, user_id)
+    if user is None:  # token valid but user gone — treat as a bad token (400)
+        raise account_tokens.AccountTokenError()
     user.password_hash = hash_password(new_password)
     # Force re-login everywhere: revoke all of the user's refresh tokens.
     for rt in db.scalars(select(RefreshToken).where(RefreshToken.user_id == user_id)):
