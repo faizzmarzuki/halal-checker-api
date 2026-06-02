@@ -58,8 +58,9 @@ _ocr_engine = OcrEngine()
 _translator = Translator()
 
 
-# Auth + rate limiting guard the scanning endpoints (both off by default; see
-# security.py). /health is intentionally left open for liveness probes.
+# The scanning endpoints require a valid DB-backed X-API-Key (always on; see
+# security.py) and are rate limited (off by default). /health is left open for
+# liveness probes.
 _PROTECTED = [Depends(require_api_key), Depends(rate_limit)]
 
 
