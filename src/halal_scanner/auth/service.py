@@ -7,7 +7,7 @@ import jwt
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import tokens
+from . import roles, tokens
 from .models import RefreshToken, User
 from .passwords import hash_password, verify_password
 
@@ -27,7 +27,11 @@ class InvalidToken(Exception):
 def register(db: Session, email: str, password: str) -> User:
     if db.scalar(select(User).where(User.email == email)) is not None:
         raise EmailTaken()
-    user = User(email=email, password_hash=hash_password(password))
+    user = User(
+        email=email,
+        password_hash=hash_password(password),
+        role=roles.resolve_role(email),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

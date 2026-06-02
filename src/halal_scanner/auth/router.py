@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from . import service
+from . import audit, service
 from .dependencies import get_current_user
 from .models import User
 from .schemas import (
@@ -22,9 +22,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=UserOut, status_code=201)
 def register(req: RegisterRequest, db: Session = Depends(get_db)) -> User:
     try:
-        return service.register(db, req.email, req.password)
+        user = service.register(db, req.email, req.password)
     except service.EmailTaken:
         raise HTTPException(status_code=409, detail="Email already registered.")
+    audit.record(db, "user.register", user.id, req.email)
+    return user
 
 
 @router.post("/login", response_model=TokenPair)
@@ -32,8 +34,10 @@ def login(req: LoginRequest, db: Session = Depends(get_db)) -> TokenPair:
     try:
         user = service.authenticate(db, req.email, req.password)
     except service.InvalidCredentials:
+        audit.record(db, "auth.login_failed", None, req.email)
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     access, refresh = service.issue_tokens(db, user)
+    audit.record(db, "auth.login", user.id, req.email)
     return TokenPair(access_token=access, refresh_token=refresh)
 
 
@@ -52,6 +56,7 @@ def logout(req: RefreshRequest, db: Session = Depends(get_db)) -> None:
         service.logout(db, req.refresh_token)
     except service.InvalidToken:
         raise HTTPException(status_code=401, detail="Invalid refresh token.")
+    audit.record(db, "auth.logout", None, "")
 
 
 @router.get("/me", response_model=UserOut)

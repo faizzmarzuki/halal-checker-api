@@ -37,4 +37,5 @@ class UserOut(BaseModel):
     email: str
     is_active: bool
     is_verified: bool
+    role: str
     created_at: datetime
