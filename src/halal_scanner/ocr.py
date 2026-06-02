@@ -16,14 +16,41 @@ from typing import Callable
 OcrBackend = Callable[[bytes], str]
 
 
-def _default_backend(image_bytes: bytes) -> str:
-    """Tesseract OCR backend. Imports are lazy so deps are optional."""
+# Bound the decoded pixel area to defend against decompression bombs (MED-2).
+# ~40 MP is generous for a real phone photo of a label; bombs are typically
+# hundreds of MP. OcrEngine.extract_text already turns any failure into "".
+MAX_IMAGE_PIXELS = 40_000_000
+
+
+def _ensure_within_pixel_cap(
+    width: int, height: int, max_pixels: int = MAX_IMAGE_PIXELS
+) -> None:
+    """Raise ValueError if the decoded pixel area would exceed the cap (MED-2)."""
+    if width * height > max_pixels:
+        raise ValueError(f"image {width}x{height} exceeds {max_pixels}px cap")
+
+
+def _open_image(image_bytes: bytes, max_pixels: int = MAX_IMAGE_PIXELS):
+    """Open image bytes with Pillow, rejecting oversized (bomb) images.
+
+    Image.open is lazy (reads the header only), so width/height are available
+    before the pixels are decoded — the check rejects a bomb before any large
+    allocation happens.
+    """
     import io
 
-    import pytesseract
     from PIL import Image
 
-    return pytesseract.image_to_string(Image.open(io.BytesIO(image_bytes)))
+    img = Image.open(io.BytesIO(image_bytes))
+    _ensure_within_pixel_cap(img.width, img.height, max_pixels)
+    return img
+
+
+def _default_backend(image_bytes: bytes) -> str:
+    """Tesseract OCR backend. Imports are lazy so deps are optional."""
+    import pytesseract
+
+    return pytesseract.image_to_string(_open_image(image_bytes))
 
 
 class OcrEngine:
