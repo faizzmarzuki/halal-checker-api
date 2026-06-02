@@ -1,10 +1,16 @@
-# Halal Food Scanner
+# Halal Checker API
 
-Classify food ingredients as **halal**, **haram** (non-halal), or **shubhah**
-(doubtful). A deterministic English rulebook is the authority; everything else
-(barcode lookup, OCR, translation, an optional local LLM) just feeds clean
-ingredient text into that engine. Every verdict carries a disclaimer — this is a
-decision aid, **not a religious ruling**.
+A **FastAPI** service that classifies food ingredients as **halal**, **haram**
+(non-halal), or **shubhah** (doubtful). A deterministic English rulebook is the
+authority; everything else (barcode lookup, OCR, translation, an optional local
+LLM) just feeds clean ingredient text into that engine. Every verdict carries a
+disclaimer — this is a decision aid, **not a religious ruling**.
+
+It also ships a full account system: JWT auth, user-owned API keys, email
+verification & password reset, and admin/audit endpoints (sub-projects 7–10).
+
+> Built with [Claude Code](https://claude.com/claude-code) following a
+> spec → plan → TDD → review workflow (see `docs/superpowers/`).
 
 ## Architecture
 

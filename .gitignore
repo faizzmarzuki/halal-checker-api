@@ -1,10 +1,41 @@
-# Python
+# ---- Python ----
 .venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
+build/
+dist/
+.eggs/
+
+# ---- Test / coverage / type-check caches ----
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.tox/
 
-# Local SQLite databases (created at runtime / in demos)
+# ---- Local databases (created at runtime / in demos) ----
 *.db
+*.sqlite
+*.sqlite3
+
+# ---- Local tooling / editor / OS (not part of the codebase) ----
+.claude/
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ---- Security report (kept local, not published) ----
+QA_SECURITY_FINDINGS.txt
+
+# ---- Env files (never commit secrets) ----
+.env
+.env.*
