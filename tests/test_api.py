@@ -145,3 +145,21 @@ def test_health():
     body = resp.json()
     assert body["status"] == "ok"
     assert isinstance(body["ollama_available"], bool)
+
+
+def test_classify_too_many_ingredients_rejected():
+    resp = client.post("/classify", json={"ingredients": ["sugar"] * 201})
+    assert resp.status_code == 422
+
+
+def test_classify_overlong_ingredient_string_rejected():
+    resp = client.post("/classify", json={"ingredients": ["x" * 201]})
+    assert resp.status_code == 422
+
+
+def test_classify_at_limits_accepted():
+    resp = client.post(
+        "/classify",
+        json={"ingredients": ["x" * 200] * 200, "use_gemma": False},
+    )
+    assert resp.status_code == 200
