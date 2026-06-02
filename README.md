@@ -66,6 +66,19 @@ Log in (JWT), then manage keys. The raw key is shown **once** at creation.
 
 Use a key by sending `X-API-Key: <key>` to the scanning endpoints.
 
+### Account recovery (Sub-project 9)
+
+Email is delivered via a pluggable backend that defaults to logging (no provider
+needed locally). `/request` endpoints always return `200` (no account
+enumeration); the raw token is in the email body.
+
+| Method | Path                            | Body                       | Notes |
+|--------|---------------------------------|----------------------------|-------|
+| POST   | `/auth/verify/request`          | `{email}`                  | `200`; sends a verification token. |
+| POST   | `/auth/verify/confirm`          | `{token}`                  | `204`; marks the user verified. `400` if bad. |
+| POST   | `/auth/password-reset/request`  | `{email}`                  | `200`; sends a reset token. |
+| POST   | `/auth/password-reset/confirm`  | `{token, new_password}`    | `204`; resets the password and revokes all refresh tokens. `400` if bad. |
+
 ## Configuration (environment variables)
 
 | Var | Default | Effect |
