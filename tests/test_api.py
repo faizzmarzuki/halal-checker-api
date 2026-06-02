@@ -79,6 +79,23 @@ def test_scan_barcode_empty_barcode_rejected():
     assert resp.status_code == 422
 
 
+@patch("halal_scanner.api.app._ocr_engine.extract_text", return_value="sugar\nlard")
+def test_scan_image_classifies_label(mock_ocr):
+    resp = client.post("/scan-image", content=b"fake-jpeg-bytes")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["extracted_text"] == "sugar\nlard"
+    # worst-status-wins: lard is haram.
+    assert body["verdict"] == "haram"
+
+
+@patch("halal_scanner.api.app._ocr_engine.extract_text", return_value="")
+def test_scan_image_no_text_returns_422(mock_ocr):
+    resp = client.post("/scan-image", content=b"not-an-image")
+    assert resp.status_code == 422
+    assert "could not read" in resp.json()["detail"].lower()
+
+
 def test_health():
     resp = client.get("/health")
     assert resp.status_code == 200
