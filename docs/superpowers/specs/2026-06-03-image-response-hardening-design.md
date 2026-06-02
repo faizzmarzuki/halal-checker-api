@@ -30,7 +30,9 @@ but a small compressed file can still decode to an enormous pixel area
 
 ### Fix
 
-Extract the image-open step into a guarded helper:
+Split the guard (pure, Pillow-free) from the Pillow open so the guard logic is
+testable in every environment, and the Pillow integration is testable only when
+the optional `ocr` extra is installed:
 
 ```python
 # Bound the decoded pixel area to defend against decompression bombs (MED-2).
@@ -39,7 +41,15 @@ Extract the image-open step into a guarded helper:
 MAX_IMAGE_PIXELS = 40_000_000
 
 
-def _open_image(image_bytes: bytes, max_pixels: int = MAX_IMAGE_PIXELS) -> "Image.Image":
+def _ensure_within_pixel_cap(
+    width: int, height: int, max_pixels: int = MAX_IMAGE_PIXELS
+) -> None:
+    """Raise ValueError if the decoded pixel area would exceed the cap (MED-2)."""
+    if width * height > max_pixels:
+        raise ValueError(f"image {width}x{height} exceeds {max_pixels}px cap")
+
+
+def _open_image(image_bytes: bytes, max_pixels: int = MAX_IMAGE_PIXELS):
     """Open image bytes with Pillow, rejecting oversized (bomb) images.
 
     Image.open is lazy (header only), so width/height are available before the
@@ -50,10 +60,7 @@ def _open_image(image_bytes: bytes, max_pixels: int = MAX_IMAGE_PIXELS) -> "Imag
     from PIL import Image
 
     img = Image.open(io.BytesIO(image_bytes))
-    if img.width * img.height > max_pixels:
-        raise ValueError(
-            f"image {img.width}x{img.height} exceeds {max_pixels}px cap"
-        )
+    _ensure_within_pixel_cap(img.width, img.height, max_pixels)
     return img
 ```
 
@@ -73,9 +80,15 @@ so a rejected bomb collapses to `""`, and `/scan-image` returns its existing
 
 ### Testability
 
-`_open_image` uses only Pillow (a hard dependency); it does NOT need the
-`tesseract` binary (which is absent in CI, per the QA note). Tests build a real
-small PNG in memory and exercise the cap directly with an explicit `max_pixels`.
+Pillow is an OPTIONAL dependency (the `ocr` extra); the default `dev` test
+environment does not install it. So the tests must not require Pillow to import:
+
+- `_ensure_within_pixel_cap` is pure (ints in, raises or not) and is unit-tested
+  in EVERY environment — this guarantees the guard logic is covered.
+- `_open_image` (the Pillow integration) is tested behind
+  `pytest.importorskip("PIL")`, so it runs only when the `ocr` extra is
+  installed and is skipped otherwise. It needs Pillow but NOT the `tesseract`
+  binary.
 
 ## L-1 — Security headers
 
@@ -130,9 +143,13 @@ place), HSTS-in-app, `extra="forbid"` on auth models, and disabling public
 
 ## Testing (TDD, red → green)
 
-`_open_image` (new `tests/test_ocr.py` cases, real Pillow, no tesseract):
+`_ensure_within_pixel_cap` (new `tests/test_ocr.py` cases, no Pillow needed):
+- dimensions within `max_pixels` → returns None (no raise).
+- dimensions whose product exceeds a low `max_pixels` → raises `ValueError`.
+
+`_open_image` (new `tests/test_ocr.py` cases, behind `pytest.importorskip("PIL")`):
 - a small valid PNG (e.g. 10x10) within the cap → returns an image, no raise.
-- an image whose `width*height` exceeds a low `max_pixels` → raises `ValueError`.
+- a real 100x100 PNG with `max_pixels=9999` → raises `ValueError`.
 
 Security headers (`tests/test_api.py`):
 - `GET /health` response carries all three headers with the expected values.
