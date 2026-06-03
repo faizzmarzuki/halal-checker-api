@@ -15,9 +15,21 @@ to pick up exactly here.
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
-- **Tests:** backend `179 passing` (+2 skipped — Pillow-gated OCR; install the
-  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `45 passing`,
+- **Tests:** backend `182 passing` (+2 skipped — Pillow-gated OCR; install the
+  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `46 passing`,
   `cd mobile && npm test` (also `npm run typecheck`).
+- **On-device bugfixes (merged, PR #16):** three issues found testing on a real
+  phone — (1) **non-Latin ingredients reported as confident HALAL**: `normalize()`
+  strips non-`[a-z0-9]`, so e.g. Korean became `""`, was dropped, and
+  `_aggregate([])` fell through to HALAL. Fixed so unreadable input → SHUBHAH
+  (`Source.NONE`, low conf) and an empty result set → SHUBHAH, never HALAL.
+  (2) **barcode never scanned**: `expo-camera` v17 defaults `autoFocus='off'`;
+  set `autofocus="on"` on the live `CameraView`. (3) **OCR always 422**: the
+  backend env is missing `Pillow`/`pytesseract`/the `tesseract` binary (no code
+  bug) — install `pip install -e ".[ocr]"` + the UB-Mannheim Tesseract engine
+  (add to PATH; pick the `fra` etc. language packs for non-English labels). Note:
+  foreign-language labels still need translation (Ollama, not running) to classify
+  beyond SHUBHAH, and OCR'ing a *nutrition table* won't yield ingredient verdicts.
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
 - **Run the app:** `cd mobile && EXPO_PUBLIC_API_URL=<reachable-api> npx expo start`
