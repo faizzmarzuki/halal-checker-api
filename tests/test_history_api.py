@@ -155,3 +155,25 @@ def test_scan_image_records_history(ctx, monkeypatch):
     rows = client.get("/history", headers=headers).json()
     assert len(rows) == 1 and rows[0]["scan_type"] == "image"
     assert rows[0]["verdict"] == "haram"
+    assert rows[0]["summary"] == "sugar, lard"  # parsed list, not raw OCR dump
+
+
+def test_scan_barcode_records_history(ctx, monkeypatch):
+    from halal_scanner.openfoodfacts import Product
+
+    client, _ = ctx
+    headers = _auth_headers(client)
+    raw = _make_key(client, headers)
+    monkeypatch.setattr(
+        "halal_scanner.api.app._off_client.fetch",
+        lambda bc: Product(
+            barcode="0123456789", name="Nutella",
+            ingredients=["sugar", "lard"], raw_text="sugar, lard",
+        ),
+    )
+    client.post("/scan-barcode", json={"barcode": "0123456789"},
+                headers={"X-API-Key": raw})
+    rows = client.get("/history", headers=headers).json()
+    assert len(rows) == 1 and rows[0]["scan_type"] == "barcode"
+    assert rows[0]["verdict"] == "haram"
+    assert "0123456789" in rows[0]["summary"] and "Nutella" in rows[0]["summary"]

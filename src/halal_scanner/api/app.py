@@ -206,6 +206,8 @@ def classify(
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(req.ingredients, req.translate)
     verdict = engine.classify(ingredients)
+    # Summary is the user's original input (what they scanned), not the
+    # translated text actually classified — that's what they'll recognise.
     _record_scan(db, key.user_id, "classify", ", ".join(req.ingredients), verdict.verdict.value)
     return VerdictOut.from_verdict(verdict)
 
@@ -247,17 +249,19 @@ async def scan_image(
     """OCR a label image (sent as the raw request body), then classify it."""
     image_bytes = await read_capped_body(request, MAX_IMAGE_BYTES)
     text = _ocr_engine.extract_text(image_bytes)
-    ingredients = parse_ingredients(text)
-    if not ingredients:
+    parsed = parse_ingredients(text)
+    if not parsed:
         raise HTTPException(
             status_code=422,
             detail="Could not read any text from the image.",
         )
     client = _gemma_client if use_gemma else None
     engine = HalalClassifier(_rulebook, gemma_client=client)
-    ingredients = _translate_all(ingredients, translate)
+    ingredients = _translate_all(parsed, translate)
     verdict = engine.classify(ingredients)
-    _record_scan(db, key.user_id, "image", text, verdict.verdict.value)
+    # Summary is the parsed (pre-translation) ingredient list — legible, unlike
+    # the raw multi-line OCR dump.
+    _record_scan(db, key.user_id, "image", ", ".join(parsed), verdict.verdict.value)
     return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
 
