@@ -11,8 +11,8 @@ to pick up exactly here.
   Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
   below it, so merging it lands changes on that branch, not `main` — retarget
   each PR's base to `main` (in order) before merging.
-- **In flight:** `sub-project-21-expo-sdk-55` (from `main`) — pin Expo to SDK 55 for
-  on-device Expo Go.
+- **In flight:** `sub-project-22-expo-sdk-54` (from `main`) — pin Expo to SDK 54
+  (the user's latest Expo Go only supports 54).
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
@@ -79,8 +79,9 @@ First product feature (post-hardening):
   scan_type / summary / verdict / created_at. Ready for the upcoming frontend.
 
 Mobile app (`mobile/`, React Native + Expo, iOS + Android):
-- **SP17 Mobile Foundation** — Expo SDK 55 (originally scaffolded on 56, then
-  pinned to 55 in SP21 so it runs in the published Expo Go) + TS, expo-router
+- **SP17 Mobile Foundation** — Expo **SDK 54** (scaffolded on 56, pinned 56→55
+  in SP21, then 55→54 in SP22 because the user's latest Expo Go only supports 54)
+  + TS, expo-router
   (routes under `src/app/`, `@/` alias for `src/`). Typed `fetch` client with JWT auto-refresh
   (`src/api/client.ts`), secure session in expo-secure-store
   (`src/auth/session.ts`), auth flow (register/login/logout, `AuthProvider`), an
@@ -110,10 +111,16 @@ Mobile app (`mobile/`, React Native + Expo, iOS + Android):
   (`Platform.OS === "web"`), secure-store on native. Without it the app hung on
   the loading spinner on web (expo-secure-store is native-only). Unblocked
   web-browser testing.
-- **SP21 Expo SDK 55** — pinned the project from SDK 56 (latest, not yet in the
-  user's Expo Go) down to **SDK 55** via `expo install --fix` so it runs in
-  published Expo Go; realigned devDeps; jest now runs serially (`maxWorkers: 1`).
-  Verified: 30 tests, tsc clean, `expo export --platform web` bundles all routes.
+- **SP21/SP22 Expo SDK pin** — `create-expo-app` scaffolded on SDK 56 (the npm
+  `latest`), but the user's latest **Expo Go only supports SDK 54**. Pinned
+  56→55 (SP21) then 55→54 (SP22) via `expo install --fix` + realigned devDeps
+  (`jest-expo`, `react-test-renderer`/`@types/react` to match the SDK's React).
+  Jest runs serially with a higher timeout + `--forceExit` (`maxWorkers: 1`,
+  `testTimeout: 20000`, `test: "jest --forceExit"`) — the RN test env leaks
+  handles that accumulate across suites (each passes alone). Verified on SDK 54:
+  30 tests, tsc clean, `expo export --platform web` bundles all routes. To bump
+  the SDK later (when Expo Go supports it): `npx expo install expo@<ver> --fix`,
+  realign devDeps, re-run.
 
 Dev-run notes (for testing): start the backend with `HALAL_JWT_SECRET` set and
 bind `0.0.0.0` (`--host 0.0.0.0 --port 8000`). The mobile app reads
