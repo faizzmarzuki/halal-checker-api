@@ -109,7 +109,11 @@ def client_ip(request: Request) -> str:
     if _trust_proxy():
         xff = request.headers.get("x-forwarded-for")
         if xff:
-            return xff.split(",")[0].strip()
+            # Guard against a malformed/empty first segment (e.g. ", 10.0.0.1"):
+            # an empty key would lump unrelated requests into one bucket.
+            candidate = xff.split(",")[0].strip()
+            if candidate:
+                return candidate
     return request.client.host if request.client else "unknown"
 
 

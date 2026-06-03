@@ -88,3 +88,10 @@ def test_client_ip_no_client_returns_unknown(monkeypatch):
     monkeypatch.delenv("HALAL_TRUST_PROXY", raising=False)
     req = _FakeRequest(client_host=None, headers={})
     assert client_ip(req) == "unknown"
+
+
+def test_client_ip_empty_xff_segment_falls_back(monkeypatch):
+    # A malformed leading comma must not yield an empty limiter key.
+    monkeypatch.setenv("HALAL_TRUST_PROXY", "yes")
+    req = _FakeRequest(client_host="10.0.0.9", headers={"x-forwarded-for": ", 10.0.0.1"})
+    assert client_ip(req) == "10.0.0.9"
