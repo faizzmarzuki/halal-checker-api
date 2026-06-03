@@ -1,0 +1,30 @@
+databases:
+  - name: halal-db
+    plan: free
+    databaseName: halal_scanner
+
+services:
+  - type: web
+    name: halal-scanner-api
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: HALAL_DATABASE_URL
+        fromDatabase:
+          name: halal-db
+          property: connectionString
+      - key: HALAL_JWT_SECRET
+        generateValue: true
+      - key: HALAL_ENV
+        value: production
+      - key: HALAL_RATE_LIMIT
+        value: "60"
+      - key: HALAL_RATE_WINDOW
+        value: "60"
+      - key: HALAL_TRUST_PROXY
+        value: "1"
+      - key: HALAL_ADMIN_EMAILS
+        sync: false
+      - key: HALAL_CORS_ORIGINS
+        sync: false
