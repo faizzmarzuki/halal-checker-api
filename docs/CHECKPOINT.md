@@ -7,12 +7,14 @@ to pick up exactly here.
 - **Branches in flight (not yet merged to `main`):**
   - `sub-project-11-dos-input-hardening` — pushed; open as **PR #1**
     (`https://github.com/faizzmarzuki/halal-checker-api/pull/1`).
-  - `sub-project-12-image-response-hardening` — **stacked on SP11** (branched off
-    its tip), local only. Merge order: SP11 first, then SP12.
+  - `sub-project-12-image-response-hardening` — **stacked on SP11**; pushed; open
+    as **PR #2** (base = SP11 branch). Merge order: SP11, then SP12.
+  - `sub-project-13-ratelimit-hardening` — **stacked on SP12**, local only.
+    Merge order: SP11 → SP12 → SP13.
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created via the GitHub REST API
   using the stored git credential.
-- **Tests:** `142 passing` (+2 skipped — Pillow-gated OCR tests; install the
+- **Tests:** `149 passing` (+2 skipped — Pillow-gated OCR tests; install the
   `ocr` extra to run them), coverage ~98%. Run: `.venv/Scripts/python -m pytest -q`
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -46,6 +48,11 @@ review → merge workflow):
   (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`); `extra="forbid"` on the scanning request
   models so unknown JSON fields are rejected (422).
+- **SP13 Rate-Limit Hardening** — `RateLimiter` evicts stale keys periodically
+  (`evict_every`, `_maybe_evict`) to bound memory; new `client_ip()` keys the
+  limiter on a trusted `X-Forwarded-For` (left-most entry) only when
+  `HALAL_TRUST_PROXY` is set, else the socket peer. (Redis/shared-across-workers
+  limiter still deferred.)
 
 ## Two auth layers (don't confuse)
 - **JWT Bearer** → `/auth/*`, `/keys`, `/admin/*` (humans managing accounts).
@@ -53,7 +60,9 @@ review → merge workflow):
 
 ## Key env vars
 `HALAL_JWT_SECRET` (required), `HALAL_DATABASE_URL`, `HALAL_ACCESS_TTL`,
-`HALAL_REFRESH_TTL`, `HALAL_ADMIN_EMAILS`, `HALAL_RATE_LIMIT`, `HALAL_RATE_WINDOW`.
+`HALAL_REFRESH_TTL`, `HALAL_ADMIN_EMAILS`, `HALAL_RATE_LIMIT`, `HALAL_RATE_WINDOW`,
+`HALAL_TRUST_PROXY` (set `1`/`true`/`yes` ONLY behind your own proxy → trust
+`X-Forwarded-For` for rate-limit keying; default off = socket peer).
 
 ## Open work (NOT done yet) — from the QA/security pass
 Full details in `QA_SECURITY_FINDINGS.txt` (kept local / gitignored, not on GitHub).
@@ -64,20 +73,23 @@ L-5 (`extra="forbid"` on scanning models, via SP12; auth models already had it).
 Already mitigated by design (no code change): MED-4 (constant-time API-key compare) —
 SP8 replaced the old plaintext key compare with a SHA-256 hash + DB lookup, so there
 is no exploitable timing side channel.
+Already fixed (cont.): MED-1 in-process half (proxy-aware IP + stale-key
+eviction, via SP13).
 Still open:
-- **MED-1** — rate limiter is proxy-blind (keys on `request.client.host`,
-  ignores `X-Forwarded-For`), per-process (not shared across workers), and never
-  evicts stale keys. Needs trusted-proxy IP handling + Redis/gateway for scale-out.
+- **MED-1 (remaining)** — limiter is still per-process: not shared across uvicorn
+  workers/replicas, so the effective limit = configured × worker count. Needs a
+  Redis-backed (or API-gateway) limiter for scale-out. Deferred until a real
+  multi-worker deploy.
 - **MED-3** — LLM prompt-injection note (accepted risk: rulebook is authority,
   Gemma is low-confidence + disclaimed).
 - **LOW** — disable public `/docs`/`/openapi.json` in prod, explicit CORS
   allow-list when a web frontend lands, HSTS at the proxy.
 
 ## Suggested next step
-HIGH + the cheap MED/LOW items are done. Biggest remaining is **MED-1**
-(proxy-aware + shared rate limiting) — worth doing before any real multi-worker
-deploy. Could be "Sub-project 13: rate-limit hardening". Otherwise LOW items
-(disable `/docs` in prod, CORS allow-list) as a small cleanup pass.
+HIGH + MED-1 (in-process) + MED-2 + the cheap LOW items are done. What's left is
+either infra-gated (MED-1 Redis for multi-worker — do it when actually scaling
+out) or a small LOW cleanup pass: disable `/docs`/`/openapi.json` in prod and add
+an explicit CORS allow-list. Could be "Sub-project 14: prod-exposure cleanup".
 
 ## Conventions for this repo
 - Chat in casual Malay (bahasa pasar); code/comments/docs/commits in English.
