@@ -40,7 +40,11 @@ def client_ip(request: Request) -> str:
     if _trust_proxy():
         xff = request.headers.get("x-forwarded-for")
         if xff:
-            return xff.split(",")[0].strip()
+            # Guard against a malformed/empty first segment (e.g. ", 10.0.0.1"):
+            # an empty key would lump unrelated requests into one bucket.
+            candidate = xff.split(",")[0].strip()
+            if candidate:
+                return candidate
     return request.client.host if request.client else "unknown"
 ```
 
@@ -122,6 +126,8 @@ runs when limiting is active.
 - env unset → returns `request.client.host`, ignores a present XFF.
 - `HALAL_TRUST_PROXY=1` + XFF `"1.2.3.4, 10.0.0.1"` → returns `"1.2.3.4"`.
 - `HALAL_TRUST_PROXY=1` but no XFF → falls back to `request.client.host`.
+- `HALAL_TRUST_PROXY=yes` + XFF with an empty leading segment (`", 10.0.0.1"`) →
+  falls back to `request.client.host` (no empty limiter key).
 - no `request.client` → returns `"unknown"`.
 
 `RateLimiter` eviction (injected `now`, small `evict_every`):
