@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from ..models import IngredientResult, ScanVerdict
 
@@ -20,6 +20,9 @@ MAX_INGREDIENT_LEN = 200
 
 class ClassifyRequest(BaseModel):
     """Body for POST /classify."""
+    # Reject unexpected JSON fields (e.g. is_admin/role) instead of ignoring
+    # them silently (L-5).
+    model_config = ConfigDict(extra="forbid")
     # min_length=1 => an empty list is rejected with HTTP 422 automatically.
     # max_length caps the list; each item is length-bounded too.
     ingredients: list[
@@ -73,6 +76,8 @@ class VerdictOut(BaseModel):
 
 class ScanBarcodeRequest(BaseModel):
     """Body for POST /scan-barcode."""
+    # Reject unexpected JSON fields instead of ignoring them silently (L-5).
+    model_config = ConfigDict(extra="forbid")
     # A real barcode is 6-14 digits. Anything else (letters, path traversal,
     # URL tricks) is rejected with HTTP 422 before any outbound call (HIGH-3).
     barcode: str = Field(..., pattern=r"^[0-9]{6,14}$")
