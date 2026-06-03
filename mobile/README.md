@@ -1,56 +1,72 @@
-# Welcome to your Expo app 👋
+# Halal Checker — Mobile app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native + Expo (iOS + Android) client for the Halal Checker API. This is the
+**foundation** (SP17): auth, secure session, an auto-managed API key, and an
+authenticated navigation shell. Screens are functional with minimal styling — the
+visual design and the scanning / history screens come in later sub-projects.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- Expo (SDK 56, managed) + TypeScript
+- expo-router (file-based routes under `src/app/`)
+- @tanstack/react-query (server state)
+- expo-secure-store (tokens + API key)
+- Jest + jest-expo + @testing-library/react-native (tests)
 
-   ```bash
-   npm install
-   ```
+## Prerequisites
 
-2. Start the app
+- Node 18+ and npm
+- The [Expo Go](https://expo.dev/go) app on your phone (or an iOS/Android simulator)
+- The **backend running and reachable** (see the repo root README to start the API)
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+cd mobile
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Point the app at the backend
 
-### Other setup steps
+The app reads `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`). A phone
+cannot reach the dev machine's `localhost`, so set it to a reachable address:
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+# LAN: use your dev machine's IP, with the backend bound to 0.0.0.0
+EXPO_PUBLIC_API_URL="http://192.168.1.50:8000" npx expo start
 
-## Learn more
+# or a tunnel (works off-LAN):
+npx expo start --tunnel
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+The backend must be running with `HALAL_JWT_SECRET` set. If a device origin needs
+CORS, set `HALAL_CORS_ORIGINS` on the backend.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Run
 
-## Join the community
+```bash
+npx expo start            # then scan the QR with Expo Go, or press i / a
+```
 
-Join our community of developers creating universal apps.
+Register or log in; the app stores your tokens securely and transparently creates
+an API key for scanning (used by the scanning screens in a later sub-project).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Develop
+
+```bash
+npm test          # Jest (unit + component tests)
+npm run typecheck # tsc --noEmit
+```
+
+## Layout
+
+```
+src/
+  config.ts              # EXPO_PUBLIC_API_URL
+  api/client.ts          # typed fetch + JWT auto-refresh
+  api/auth.ts            # register / login / logout / me
+  api/keys.ts            # ensureApiKey() (auto-managed)
+  auth/session.ts        # secure-store token + key storage
+  auth/AuthProvider.tsx  # session context
+  app/                   # expo-router routes (root layout, (auth), (app) shell)
+```
