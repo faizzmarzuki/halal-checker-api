@@ -49,3 +49,19 @@ export function classify(ingredients: string[], opts: ClassifyOpts = {}): Promis
     }),
   );
 }
+
+export type BarcodeVerdictOut = VerdictOut & { barcode: string; product_name: string };
+
+export function scanBarcode(barcode: string, opts: ClassifyOpts = {}): Promise<BarcodeVerdictOut> {
+  return withApiKeyRecovery(() =>
+    request<BarcodeVerdictOut>("/scan-barcode", {
+      method: "POST",
+      auth: "apiKey",
+      body: {
+        barcode,
+        use_gemma: opts.useGemma ?? true,
+        translate: opts.translate ?? false,
+      },
+    }),
+  );
+}

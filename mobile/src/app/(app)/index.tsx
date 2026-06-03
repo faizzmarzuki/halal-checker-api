@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ActivityIndicator } from "react-native";
+import { router } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
 import { classify } from "@/api/scan";
 import VerdictResult from "@/components/VerdictResult";
@@ -36,6 +37,7 @@ export default function Home() {
         style={{ minHeight: 110, textAlignVertical: "top", borderBottomWidth: 0 }}
       />
       <Button testID="check" title="Check" onPress={onCheck} loading={mutation.isPending} />
+      <Button testID="go-barcode" title="Scan barcode" variant="secondary" onPress={() => router.push("/barcode")} />
       {mutation.isPending ? <ActivityIndicator /> : null}
       {mutation.isError ? (
         <Text testID="error" variant="small" color={colors.haram}>

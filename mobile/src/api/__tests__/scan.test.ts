@@ -1,4 +1,4 @@
-import { classify } from "../scan";
+import { classify, scanBarcode } from "../scan";
 import { request, ApiError } from "../client";
 import * as keys from "../keys";
 import * as session from "../../auth/session";
@@ -58,4 +58,16 @@ test("a second 401 after recovery propagates", async () => {
   (request as jest.Mock).mockRejectedValue(new ApiError(401, "still bad"));
   await expect(classify(["lard"])).rejects.toMatchObject({ status: 401 });
   expect(request).toHaveBeenCalledTimes(2);
+});
+
+test("scanBarcode posts the barcode with the api key", async () => {
+  const bv = { ...verdict, barcode: "0123456789", product_name: "Nutella" };
+  (request as jest.Mock).mockResolvedValue(bv);
+  const result = await scanBarcode("0123456789");
+  expect(result).toEqual(bv);
+  expect(request).toHaveBeenCalledWith("/scan-barcode", {
+    method: "POST",
+    auth: "apiKey",
+    body: { barcode: "0123456789", use_gemma: true, translate: false },
+  });
 });
