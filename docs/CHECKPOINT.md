@@ -4,15 +4,15 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **SP11–SP18 are merged into `main`** (PRs #1–#8 closed; branches deleted). The
+- **SP11–SP20 are merged into `main`** (PRs #1–#10 closed; branches deleted).
   QA security track is done bar infra-gated items (see Open work); product so far:
   scan history (SP16, backend), the mobile app foundation (SP17), and the mobile
   classify screen (SP18).
   Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
   below it, so merging it lands changes on that branch, not `main` — retarget
   each PR's base to `main` (in order) before merging.
-- **In flight:** `sub-project-19-history-screen` (from `main`) — the mobile
-  History tab (list `/history` + delete + clear).
+- **In flight:** `sub-project-21-expo-sdk-55` (from `main`) — pin Expo to SDK 55 for
+  on-device Expo Go.
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
@@ -79,8 +79,9 @@ First product feature (post-hardening):
   scan_type / summary / verdict / created_at. Ready for the upcoming frontend.
 
 Mobile app (`mobile/`, React Native + Expo, iOS + Android):
-- **SP17 Mobile Foundation** — Expo SDK 56 + TS, expo-router (routes under
-  `src/app/`, `@/` alias for `src/`). Typed `fetch` client with JWT auto-refresh
+- **SP17 Mobile Foundation** — Expo SDK 55 (originally scaffolded on 56, then
+  pinned to 55 in SP21 so it runs in the published Expo Go) + TS, expo-router
+  (routes under `src/app/`, `@/` alias for `src/`). Typed `fetch` client with JWT auto-refresh
   (`src/api/client.ts`), secure session in expo-secure-store
   (`src/auth/session.ts`), auth flow (register/login/logout, `AuthProvider`), an
   **auto-managed API key** (`ensureApiKey` — created on login, stored, used for
@@ -105,6 +106,24 @@ Mobile app (`mobile/`, React Native + Expo, iOS + Android):
   empty/loading/error states via TanStack Query (`useQuery`/`useMutation`
   invalidating `["history"]`). `src/lib/time.ts` `timeAgo` shows relative times.
   Functional only.
+- **SP20 Web Storage** — `src/auth/session.ts` uses `localStorage` on web
+  (`Platform.OS === "web"`), secure-store on native. Without it the app hung on
+  the loading spinner on web (expo-secure-store is native-only). Unblocked
+  web-browser testing.
+- **SP21 Expo SDK 55** — pinned the project from SDK 56 (latest, not yet in the
+  user's Expo Go) down to **SDK 55** via `expo install --fix` so it runs in
+  published Expo Go; realigned devDeps; jest now runs serially (`maxWorkers: 1`).
+  Verified: 30 tests, tsc clean, `expo export --platform web` bundles all routes.
+
+Dev-run notes (for testing): start the backend with `HALAL_JWT_SECRET` set and
+bind `0.0.0.0` (`--host 0.0.0.0 --port 8000`). The mobile app reads
+`EXPO_PUBLIC_API_URL` from `mobile/.env` (gitignored). **On a device** use the
+dev machine's LAN IP (`http://192.168.100.21:8000`) and allow port 8000 through
+Windows Firewall. **In a browser** use `http://localhost:8000` (Chrome blocks
+localhost→LAN-IP) and set the backend's `HALAL_CORS_ORIGINS` to the Expo web
+origin (`http://localhost:8081`). A stale `halal_scanner.db` from an early
+project phase can cause 500s (missing columns) — delete it so `create_all`
+rebuilds the current schema.
 
 ## Two auth layers (don't confuse)
 - **JWT Bearer** → `/auth/*`, `/keys`, `/admin/*` (humans managing accounts).
