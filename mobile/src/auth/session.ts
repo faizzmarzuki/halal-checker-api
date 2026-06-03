@@ -45,3 +45,7 @@ export async function readSession(): Promise<Session> {
 export async function clearSession(): Promise<void> {
   for (const k of Object.values(KEYS)) await SecureStore.deleteItemAsync(k);
 }
+
+export async function clearApiKey(): Promise<void> {
+  await SecureStore.deleteItemAsync(KEYS.apiKey);
+}
