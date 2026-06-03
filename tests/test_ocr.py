@@ -29,6 +29,44 @@ def test_parse_ingredients_splits_newlines_commas_semicolons():
     ]
 
 
+def test_resolve_tesseract_prefers_explicit_env():
+    from halal_scanner.ocr import _resolve_tesseract_cmd
+
+    env = {"HALAL_TESSERACT_CMD": r"D:\tess\tesseract.exe"}
+    got = _resolve_tesseract_cmd(
+        env, which=lambda _: r"C:\onpath\tesseract.exe", exists=lambda p: True
+    )
+    assert got == r"D:\tess\tesseract.exe"
+
+
+def test_resolve_tesseract_none_when_on_path():
+    from halal_scanner.ocr import _resolve_tesseract_cmd
+
+    # Already discoverable on PATH -> no override needed.
+    got = _resolve_tesseract_cmd(
+        {}, which=lambda _: "/usr/bin/tesseract", exists=lambda p: False
+    )
+    assert got is None
+
+
+def test_resolve_tesseract_finds_windows_install_off_path():
+    from halal_scanner.ocr import _resolve_tesseract_cmd
+
+    expected = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    env = {"ProgramFiles": r"C:\Program Files"}
+    got = _resolve_tesseract_cmd(
+        env, which=lambda _: None, exists=lambda p: p == expected
+    )
+    assert got == expected
+
+
+def test_resolve_tesseract_none_when_not_found():
+    from halal_scanner.ocr import _resolve_tesseract_cmd
+
+    got = _resolve_tesseract_cmd({}, which=lambda _: None, exists=lambda p: False)
+    assert got is None
+
+
 def test_ensure_within_pixel_cap_accepts_within_limit():
     from halal_scanner.ocr import _ensure_within_pixel_cap
 
