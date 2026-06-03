@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from halal_scanner import history
 from halal_scanner.api.app import app
 from halal_scanner.db import Base, get_db
 import halal_scanner.auth.models  # noqa: F401
@@ -50,9 +51,6 @@ def test_valid_key_authenticates_and_bad_key_401(ctx):
     assert client.post("/classify", json={"ingredients": ["sugar"]},
                        headers={"X-API-Key": "hsk_bogus"}).status_code == 401
     assert client.post("/classify", json={"ingredients": ["sugar"]}).status_code == 401
-
-
-from halal_scanner import history
 
 
 def _seed(SessionFactory, email, items):
@@ -115,9 +113,19 @@ def test_cannot_delete_another_users_item(ctx):
     assert client.delete(f"/history/{item_id}", headers=h2).status_code == 404
 
 
-def test_clear_all_history(ctx):
+def test_delete_routes_require_jwt(ctx):
+    client, _ = ctx
+    assert client.delete("/history/1").status_code == 401
+    assert client.delete("/history").status_code == 401
+
+
+def test_clear_all_history_scopes_to_caller(ctx):
     client, Session = ctx
-    headers = _auth_headers(client)
-    _seed(Session, "a@b.com", [("classify", str(i), "halal") for i in range(3)])
-    assert client.delete("/history", headers=headers).status_code == 204
-    assert client.get("/history", headers=headers).json() == []
+    h1 = _auth_headers(client, "u1@b.com")
+    h2 = _auth_headers(client, "u2@b.com")
+    _seed(Session, "u1@b.com", [("classify", str(i), "halal") for i in range(3)])
+    _seed(Session, "u2@b.com", [("classify", "keep", "halal")])
+    assert client.delete("/history", headers=h1).status_code == 204
+    assert client.get("/history", headers=h1).json() == []
+    # u2's history is untouched.
+    assert [x["summary"] for x in client.get("/history", headers=h2).json()] == ["keep"]
