@@ -295,3 +295,12 @@ def test_require_prod_posture_production_with_limit_ok():
     assert _require_prod_posture("production", "100") is None
     assert _require_prod_posture("prod", "1") is None
     assert _require_prod_posture(" PROD ", "5") is None
+
+
+def test_require_prod_posture_error_distinguishes_unset_from_malformed():
+    from halal_scanner.api.app import _require_prod_posture
+
+    with pytest.raises(RuntimeError, match="got: unset"):
+        _require_prod_posture("production", None)
+    with pytest.raises(RuntimeError, match="got: '1.5'"):
+        _require_prod_posture("production", "1.5")
