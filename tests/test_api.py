@@ -305,3 +305,12 @@ def test_require_prod_posture_error_distinguishes_unset_from_malformed():
         _require_prod_posture("production", None)
     with pytest.raises(RuntimeError, match="got: '1.5'"):
         _require_prod_posture("production", "1.5")
+
+
+def test_scan_still_succeeds_if_history_record_fails(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr("halal_scanner.api.app.history.record", boom)
+    resp = client.post("/classify", json={"ingredients": ["sugar"]})
+    assert resp.status_code == 200

@@ -129,3 +129,29 @@ def test_clear_all_history_scopes_to_caller(ctx):
     assert client.get("/history", headers=h1).json() == []
     # u2's history is untouched.
     assert [x["summary"] for x in client.get("/history", headers=h2).json()] == ["keep"]
+
+
+def test_classify_records_history(ctx):
+    client, _ = ctx
+    headers = _auth_headers(client)
+    raw = _make_key(client, headers)
+    client.post("/classify", json={"ingredients": ["sugar", "lard"]},
+                headers={"X-API-Key": raw})
+    rows = client.get("/history", headers=headers).json()
+    assert len(rows) == 1
+    assert rows[0]["scan_type"] == "classify"
+    assert rows[0]["verdict"] == "haram"
+    assert "sugar" in rows[0]["summary"] and "lard" in rows[0]["summary"]
+
+
+def test_scan_image_records_history(ctx, monkeypatch):
+    client, _ = ctx
+    headers = _auth_headers(client)
+    raw = _make_key(client, headers)
+    monkeypatch.setattr(
+        "halal_scanner.api.app._ocr_engine.extract_text", lambda b: "sugar\nlard"
+    )
+    client.post("/scan-image", content=b"img", headers={"X-API-Key": raw})
+    rows = client.get("/history", headers=headers).json()
+    assert len(rows) == 1 and rows[0]["scan_type"] == "image"
+    assert rows[0]["verdict"] == "haram"

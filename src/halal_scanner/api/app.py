@@ -13,12 +13,16 @@ import requests
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy.orm import Session
+
 from ..auth import router as auth_router  # also registers the ORM models
 from ..auth.keys_router import router as keys_router
 from ..auth.recovery_router import router as recovery_router
 from ..auth.admin_router import router as admin_router
 from .history_router import router as history_router
-from ..db import Base, engine
+from ..db import Base, engine, get_db
+from .. import history
+from ..auth.models import ApiKey
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
@@ -161,7 +165,7 @@ async def read_capped_body(request: Request, max_bytes: int) -> bytes:
 # The scanning endpoints require a valid DB-backed X-API-Key (always on; see
 # security.py) and are rate limited (off by default). /health is left open for
 # liveness probes.
-_PROTECTED = [Depends(current_api_key), Depends(rate_limit)]
+_PROTECTED = [Depends(rate_limit)]
 
 
 def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
@@ -172,7 +176,11 @@ def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
 
 
 @app.post("/classify", response_model=VerdictOut, dependencies=_PROTECTED)
-def classify(req: ClassifyRequest) -> VerdictOut:
+def classify(
+    req: ClassifyRequest,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+) -> VerdictOut:
     """Classify a list of ingredient strings and return an overall verdict."""
     # Honour the per-request switch: None disables the Gemma fallback entirely,
     # making the call fully deterministic and network-free.
@@ -180,11 +188,19 @@ def classify(req: ClassifyRequest) -> VerdictOut:
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(req.ingredients, req.translate)
     verdict = engine.classify(ingredients)
+    try:
+        history.record(db, key.user_id, "classify", ", ".join(req.ingredients), verdict.verdict.value)
+    except Exception:
+        pass
     return VerdictOut.from_verdict(verdict)
 
 
 @app.post("/scan-barcode", response_model=BarcodeVerdictOut, dependencies=_PROTECTED)
-def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
+def scan_barcode(
+    req: ScanBarcodeRequest,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+) -> BarcodeVerdictOut:
     """Look up a barcode on OpenFoodFacts, then classify its ingredients."""
     product = _off_client.fetch(req.barcode)
     if product is None:
@@ -196,6 +212,13 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(product.ingredients, req.translate)
     verdict = engine.classify(ingredients)
+    try:
+        history.record(
+            db, key.user_id, "barcode",
+            f"{product.barcode} ({product.name})", verdict.verdict.value,
+        )
+    except Exception:
+        pass
     return BarcodeVerdictOut.from_verdict_and_product(
         verdict, barcode=product.barcode, product_name=product.name
     )
@@ -203,7 +226,11 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
 
 @app.post("/scan-image", response_model=ImageVerdictOut, dependencies=_PROTECTED)
 async def scan_image(
-    request: Request, use_gemma: bool = True, translate: bool = False
+    request: Request,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+    use_gemma: bool = True,
+    translate: bool = False,
 ) -> ImageVerdictOut:
     """OCR a label image (sent as the raw request body), then classify it."""
     image_bytes = await read_capped_body(request, MAX_IMAGE_BYTES)
@@ -218,6 +245,10 @@ async def scan_image(
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(ingredients, translate)
     verdict = engine.classify(ingredients)
+    try:
+        history.record(db, key.user_id, "image", text, verdict.verdict.value)
+    except Exception:
+        pass
     return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
 
