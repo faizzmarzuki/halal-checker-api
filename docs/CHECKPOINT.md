@@ -4,17 +4,17 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **SP11–SP14 are merged into `main`** (PRs #1–#4 closed; their branches deleted).
-  Watch out for the stacked-PR footgun that bit us once: a stacked PR's base is
-  the branch below it, so merging it lands changes on that branch, not `main` —
-  retarget each PR's base to `main` (in order) before merging, or merge the
-  bottom of the stack first and let the rest retarget.
-- **In flight:** `sub-project-15-fail-closed-prod` (from `main`) — the only open
-  branch. (If pushed: created as its own PR against `main`.)
+- **SP11–SP15 are merged into `main`** (PRs #1–#5 closed; branches deleted). The
+  whole QA security track is done bar infra-gated items (see Open work).
+  Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
+  below it, so merging it lands changes on that branch, not `main` — retarget
+  each PR's base to `main` (in order) before merging.
+- **In flight:** `sub-project-16-scan-history` (from `main`) — the first product
+  feature (not hardening).
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
-- **Tests:** `158 passing` (+2 skipped — Pillow-gated OCR tests; install the
+- **Tests:** `179 passing` (+2 skipped — Pillow-gated OCR tests; install the
   `ocr` extra to run them), coverage ~98%. Run: `.venv/Scripts/python -m pytest -q`
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -62,6 +62,16 @@ review → merge workflow):
   (called at import time beside the JWT-secret guard). Completes HIGH-1 (auth
   half was SP8). Default `dev` = no-op.
 
+First product feature (post-hardening):
+- **SP16 Scan History** — every scan is recorded per account (best-effort): new
+  `ScanHistory` model + `history` service (`record`/`list_for_user`/`delete_one`/
+  `delete_all`); `require_api_key` was replaced by `current_api_key` (returns the
+  key row) so the scanning endpoints attribute each scan to `key.user_id` via a
+  `_record_scan` helper (a recording failure never breaks a scan). JWT-protected
+  `/history` router: `GET /history` (paginated, newest-first), `DELETE /history/{id}`,
+  `DELETE /history` (clear all); deletes are audit-logged. Lightweight rows:
+  scan_type / summary / verdict / created_at. Ready for the upcoming frontend.
+
 ## Two auth layers (don't confuse)
 - **JWT Bearer** → `/auth/*`, `/keys`, `/admin/*` (humans managing accounts).
 - **`X-API-Key`** → scanning endpoints (machines calling the classifier).
@@ -99,11 +109,13 @@ Still open:
 - **LOW** — HSTS at the proxy (the rest of the LOW items are done).
 
 ## Suggested next step
-The QA security backlog is cleared except infra-gated / accepted items: **MED-1
-Redis/shared limiter** (do it when scaling out to multiple workers), **MED-3**
-LLM prompt-injection (accepted), and **HSTS** at the reverse proxy. All HIGH and
-the in-process MED/LOW work is done. The natural next step is a real **product
-feature** rather than more hardening.
+**Frontend** — a web UI for the API (planned next). The backend is ready: JWT
+auth (`/auth/*`), API-key management (`/keys`), scanning (`/classify`,
+`/scan-barcode`, `/scan-image` via `X-API-Key`), and scan history (`/history`).
+CORS is already an opt-in allow-list (`HALAL_CORS_ORIGINS`) for the frontend's
+origin. Remaining backend backlog is infra-gated/accepted only: MED-1 (Redis
+shared limiter, when scaling out), MED-3 (LLM prompt-injection, accepted), HSTS
+(proxy).
 
 ## Conventions for this repo
 - Chat in casual Malay (bahasa pasar); code/comments/docs/commits in English.
