@@ -1,8 +1,13 @@
 import React, { useState } from "react";
-import { Text, TextInput, Button, ScrollView, ActivityIndicator } from "react-native";
+import { ActivityIndicator } from "react-native";
 import { useMutation } from "@tanstack/react-query";
 import { classify } from "@/api/scan";
 import VerdictResult from "@/components/VerdictResult";
+import { Screen } from "@/components/ui/Screen";
+import { Heading, Text } from "@/components/ui/Text";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { colors } from "@/theme/tokens";
 
 function parseIngredients(text: string): string[] {
   return text.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
@@ -19,24 +24,25 @@ export default function Home() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
-      <Text style={{ fontSize: 18, fontWeight: "600" }}>Check ingredients</Text>
-      <TextInput
+    <Screen scroll>
+      <Heading>Check ingredients</Heading>
+      <Input
         testID="ingredients"
+        label="Ingredients"
+        placeholder="One per line, or comma-separated"
         multiline
-        placeholder="One ingredient per line (or comma-separated)"
         value={text}
         onChangeText={setText}
-        style={{ borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 10, minHeight: 100, textAlignVertical: "top" }}
+        style={{ minHeight: 110, textAlignVertical: "top", borderBottomWidth: 0 }}
       />
-      <Button testID="check" title="Check" onPress={onCheck} />
+      <Button testID="check" title="Check" onPress={onCheck} loading={mutation.isPending} />
       {mutation.isPending ? <ActivityIndicator /> : null}
       {mutation.isError ? (
-        <Text testID="error" style={{ color: "red" }}>
+        <Text testID="error" variant="small" color={colors.haram}>
           {(mutation.error as Error)?.message ?? "Something went wrong"}
         </Text>
       ) : null}
       {mutation.data ? <VerdictResult result={mutation.data} /> : null}
-    </ScrollView>
+    </Screen>
   );
 }

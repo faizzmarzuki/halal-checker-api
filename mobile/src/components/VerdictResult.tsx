@@ -1,31 +1,30 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import type { VerdictOut } from "@/api/scan";
-
-const COLOR: Record<string, string> = {
-  halal: "#1a7f37",
-  haram: "#cf222e",
-  shubhah: "#9a6700",
-};
+import { Card } from "@/components/ui/Card";
+import { Text } from "@/components/ui/Text";
+import { colors, space, verdictColor } from "@/theme/tokens";
 
 export default function VerdictResult({ result }: { result: VerdictOut }) {
   return (
-    <View style={{ gap: 12 }}>
-      <Text testID="verdict" style={{ fontSize: 22, fontWeight: "700", color: COLOR[result.verdict] ?? "#333" }}>
-        {result.verdict.toUpperCase()}
-      </Text>
-      <Text>{result.summary}</Text>
-      <View style={{ gap: 8 }}>
+    <View style={{ gap: space.md }}>
+      <Card style={{ borderLeftWidth: 6, borderLeftColor: verdictColor(result.verdict) }}>
+        <Text testID="verdict" variant="h1" color={verdictColor(result.verdict)} caps>
+          {result.verdict}
+        </Text>
+        <Text variant="body">{result.summary}</Text>
+      </Card>
+      <View style={{ gap: space.sm }}>
         {result.ingredients.map((ing, i) => (
-          <View key={i} testID="ingredient" style={{ borderTopWidth: 1, borderColor: "#eee", paddingTop: 6 }}>
-            <Text style={{ fontWeight: "600" }}>
-              {ing.input} — <Text style={{ color: COLOR[ing.status] ?? "#333" }}>{ing.status}</Text>
+          <Card key={i} testID="ingredient">
+            <Text variant="h2">
+              {ing.input} — <Text variant="h2" color={verdictColor(ing.status)}>{ing.status}</Text>
             </Text>
-            <Text style={{ color: "#555" }}>{ing.reason}</Text>
-          </View>
+            <Text variant="small" color={colors.muted}>{ing.reason}</Text>
+          </Card>
         ))}
       </View>
-      <Text testID="disclaimer" style={{ fontSize: 12, color: "#777" }}>{result.disclaimer}</Text>
+      <Text testID="disclaimer" variant="small" color={colors.muted}>{result.disclaimer}</Text>
     </View>
   );
 }
