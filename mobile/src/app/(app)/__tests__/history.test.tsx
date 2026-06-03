@@ -40,6 +40,15 @@ test("deleting a row calls deleteHistory with its id", async () => {
   await waitFor(() => expect(api.deleteHistory).toHaveBeenCalledWith(1));
 });
 
+test("clear all calls clearHistory", async () => {
+  (api.listHistory as jest.Mock).mockResolvedValue(rows);
+  (api.clearHistory as jest.Mock).mockResolvedValue({});
+  const { getByTestId } = render(wrap(<HistoryScreen />));
+  await waitFor(() => getByTestId("clear-all"));
+  fireEvent.press(getByTestId("clear-all"));
+  await waitFor(() => expect(api.clearHistory).toHaveBeenCalled());
+});
+
 test("an empty list shows a placeholder", async () => {
   (api.listHistory as jest.Mock).mockResolvedValue([]);
   const { getByTestId } = render(wrap(<HistoryScreen />));

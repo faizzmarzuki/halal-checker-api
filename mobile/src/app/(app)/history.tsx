@@ -34,8 +34,9 @@ export default function HistoryScreen() {
   }
   if (query.isError) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 }}>
         <Text testID="error" style={{ color: "red" }}>{(query.error as Error)?.message ?? "Failed to load history"}</Text>
+        <Button testID="retry" title="Retry" onPress={() => query.refetch()} />
       </View>
     );
   }
