@@ -7,7 +7,7 @@ visual design and the scanning / history screens come in later sub-projects.
 
 ## Stack
 
-- Expo (SDK 56, managed) + TypeScript
+- Expo (SDK 55, managed) + TypeScript
 - expo-router (file-based routes under `src/app/`)
 - @tanstack/react-query (server state)
 - expo-secure-store (tokens + API key)

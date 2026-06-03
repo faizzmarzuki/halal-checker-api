@@ -79,8 +79,9 @@ First product feature (post-hardening):
   scan_type / summary / verdict / created_at. Ready for the upcoming frontend.
 
 Mobile app (`mobile/`, React Native + Expo, iOS + Android):
-- **SP17 Mobile Foundation** — Expo SDK 56 + TS, expo-router (routes under
-  `src/app/`, `@/` alias for `src/`). Typed `fetch` client with JWT auto-refresh
+- **SP17 Mobile Foundation** — Expo SDK 55 (originally scaffolded on 56, then
+  pinned to 55 in SP21 so it runs in the published Expo Go) + TS, expo-router
+  (routes under `src/app/`, `@/` alias for `src/`). Typed `fetch` client with JWT auto-refresh
   (`src/api/client.ts`), secure session in expo-secure-store
   (`src/auth/session.ts`), auth flow (register/login/logout, `AuthProvider`), an
   **auto-managed API key** (`ensureApiKey` — created on login, stored, used for
