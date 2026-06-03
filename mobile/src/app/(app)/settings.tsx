@@ -1,14 +1,18 @@
 import React from "react";
-import { View, Text, Button } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
+import { Screen } from "@/components/ui/Screen";
+import { Text } from "@/components/ui/Text";
+import { Button } from "@/components/ui/Button";
+import { colors } from "@/theme/tokens";
 
 export default function Settings() {
   const { email, signOut } = useAuth();
   return (
-    <View style={{ flex: 1, padding: 24, gap: 16, justifyContent: "center" }}>
-      <Text style={{ fontSize: 16 }}>Signed in as {email ?? "—"}</Text>
+    <Screen style={{ justifyContent: "center" }}>
+      <Text variant="label" color={colors.muted}>SIGNED IN AS</Text>
+      <Text variant="h2">{email ?? "—"}</Text>
       <Button title="Log out" onPress={async () => { await signOut(); router.replace("/(auth)/login"); }} />
-    </View>
+    </Screen>
   );
 }

@@ -1,19 +1,21 @@
 import React from "react";
-import { View, Text, Button, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { View, FlatList, ActivityIndicator, RefreshControl } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listHistory, deleteHistory, clearHistory, type ScanHistoryOut } from "@/api/history";
 import { timeAgo } from "@/lib/time";
-
-const COLOR: Record<string, string> = { halal: "#1a7f37", haram: "#cf222e", shubhah: "#9a6700" };
+import { Card } from "@/components/ui/Card";
+import { Text } from "@/components/ui/Text";
+import { Button } from "@/components/ui/Button";
+import { colors, space, verdictColor } from "@/theme/tokens";
 
 function Row({ item, onDelete }: { item: ScanHistoryOut; onDelete: (id: number) => void }) {
   return (
-    <View testID="history-row" style={{ borderBottomWidth: 1, borderColor: "#eee", paddingVertical: 10, gap: 4 }}>
-      <Text style={{ fontWeight: "700", color: COLOR[item.verdict] ?? "#333" }}>{item.verdict.toUpperCase()}</Text>
-      <Text numberOfLines={2}>{item.summary}</Text>
-      <Text style={{ color: "#777", fontSize: 12 }}>{item.scan_type} · {timeAgo(item.created_at)}</Text>
-      <Button testID={`delete-${item.id}`} title="Delete" onPress={() => onDelete(item.id)} />
-    </View>
+    <Card testID="history-row" style={{ marginBottom: space.md }}>
+      <Text variant="h2" color={verdictColor(item.verdict)} caps>{item.verdict}</Text>
+      <Text variant="body" numberOfLines={2}>{item.summary}</Text>
+      <Text variant="small" color={colors.muted}>{item.scan_type} · {timeAgo(item.created_at)}</Text>
+      <Button testID={`delete-${item.id}`} title="Delete" variant="secondary" onPress={() => onDelete(item.id)} />
+    </Card>
   );
 }
 
@@ -30,12 +32,16 @@ export default function HistoryScreen() {
   });
 
   if (query.isLoading) {
-    return <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator /></View>;
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
   }
   if (query.isError) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 }}>
-        <Text testID="error" style={{ color: "red" }}>{(query.error as Error)?.message ?? "Failed to load history"}</Text>
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center", padding: space.xl, gap: space.md }}>
+        <Text testID="error" variant="body" color={colors.haram}>{(query.error as Error)?.message ?? "Failed to load history"}</Text>
         <Button testID="retry" title="Retry" onPress={() => query.refetch()} />
       </View>
     );
@@ -45,12 +51,23 @@ export default function HistoryScreen() {
   return (
     <FlatList
       testID="history-list"
+      style={{ backgroundColor: colors.bg }}
       data={data}
       keyExtractor={(it) => String(it.id)}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{ padding: space.lg }}
       refreshControl={<RefreshControl refreshing={query.isFetching} onRefresh={() => query.refetch()} />}
-      ListHeaderComponent={data.length ? <Button testID="clear-all" title="Clear all" onPress={() => clear.mutate()} /> : null}
-      ListEmptyComponent={<Text testID="empty" style={{ textAlign: "center", marginTop: 40, color: "#777" }}>No scans yet</Text>}
+      ListHeaderComponent={
+        data.length ? (
+          <View style={{ marginBottom: space.md }}>
+            <Button testID="clear-all" title="Clear all" variant="secondary" onPress={() => clear.mutate()} />
+          </View>
+        ) : null
+      }
+      ListEmptyComponent={
+        <Text testID="empty" variant="body" color={colors.muted} style={{ textAlign: "center", marginTop: 48 }}>
+          No scans yet
+        </Text>
+      }
       renderItem={({ item }) => <Row item={item} onDelete={del.mutate} />}
     />
   );
