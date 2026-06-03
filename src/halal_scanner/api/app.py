@@ -25,7 +25,7 @@ from ..ocr import OcrEngine, parse_ingredients
 from ..openfoodfacts import OpenFoodFactsClient
 from ..rulebook import Rulebook
 from ..translator import Translator
-from .security import rate_limit, require_api_key
+from .security import current_api_key, rate_limit
 from .schemas import (
     BarcodeVerdictOut,
     ClassifyRequest,
@@ -159,7 +159,7 @@ async def read_capped_body(request: Request, max_bytes: int) -> bytes:
 # The scanning endpoints require a valid DB-backed X-API-Key (always on; see
 # security.py) and are rate limited (off by default). /health is left open for
 # liveness probes.
-_PROTECTED = [Depends(require_api_key), Depends(rate_limit)]
+_PROTECTED = [Depends(current_api_key), Depends(rate_limit)]
 
 
 def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:

@@ -2,7 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from halal_scanner.api.security import require_api_key
+from halal_scanner.api.security import current_api_key
+from halal_scanner.auth.models import ApiKey
 
 from fastapi.testclient import TestClient
 
@@ -14,11 +15,11 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def _bypass_api_key():
-    # Scanning auth is now always-on and DB-backed; these tests aren't about
-    # auth, so bypass the key check and restore it afterward.
-    app.dependency_overrides[require_api_key] = lambda: None
+    # Scanning auth is DB-backed; these tests aren't about auth, so return a fake
+    # key (carrying a user_id for history attribution) and restore afterward.
+    app.dependency_overrides[current_api_key] = lambda: ApiKey(id=1, user_id=1)
     yield
-    app.dependency_overrides.pop(require_api_key, None)
+    app.dependency_overrides.pop(current_api_key, None)
 
 
 def test_classify_haram():
