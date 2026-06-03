@@ -43,6 +43,17 @@ def test_record_inserts_row(db):
     assert rows[0].verdict == "haram"
 
 
+def test_record_swallows_commit_failure(db, monkeypatch):
+    # Best-effort: a DB failure during record must not propagate to the caller.
+    u = _user(db, "a@b.com")
+
+    def boom():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(db, "commit", boom)
+    history.record(db, u.id, "classify", "x", "halal")  # must not raise
+
+
 def test_record_truncates_summary(db):
     u = _user(db, "a@b.com")
     history.record(db, u.id, "image", "x" * 500, "halal")

@@ -70,6 +70,10 @@ def delete_one(db: Session, user: User, scan_id: int) -> None:
 
 def delete_all(db: Session, user: User) -> int:
     """Delete all of the user's scans; return how many rows were removed."""
-    result = db.execute(delete(ScanHistory).where(ScanHistory.user_id == user.id))
+    # synchronize_session=False: a one-shot bulk delete in a request handler whose
+    # session is discarded right after, so skip the identity-map sync (and avoid
+    # leaving stale loaded rows behind in a reused session).
+    stmt = delete(ScanHistory).where(ScanHistory.user_id == user.id)
+    result = db.execute(stmt.execution_options(synchronize_session=False))
     db.commit()
     return result.rowcount
