@@ -40,12 +40,31 @@ class RateLimiter:
         limit: int,
         window: float,
         now: Callable[[], float] = time.monotonic,
+        evict_every: int = 1000,
     ):
         self.limit = limit
         self.window = window
         self._now = now
+        self._evict_every = evict_every
+        self._since_evict = 0
         self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = threading.Lock()
+
+    def _maybe_evict(self, cutoff: float) -> None:
+        """Every ``evict_every`` calls, drop keys whose hits are all expired.
+
+        Runs under the caller's lock. A key whose deque is empty or whose most
+        recent hit is older than the cutoff has no live state, so removing it is
+        safe — it would prune to empty on next access anyway. Bounds the memory
+        the limiter holds for one-off IPs/keys (MED-1).
+        """
+        self._since_evict += 1
+        if self._since_evict < self._evict_every:
+            return
+        self._since_evict = 0
+        stale = [k for k, dq in self._hits.items() if not dq or dq[-1] <= cutoff]
+        for k in stale:
+            del self._hits[k]
 
     def allow(self, key: str) -> bool:
         """Record a hit for ``key`` and return whether it is within the limit."""
@@ -54,6 +73,7 @@ class RateLimiter:
         now = self._now()
         cutoff = now - self.window
         with self._lock:
+            self._maybe_evict(cutoff)
             hits = self._hits[key]
             while hits and hits[0] <= cutoff:
                 hits.popleft()

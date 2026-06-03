@@ -33,3 +33,21 @@ def test_rate_limiter_zero_limit_is_disabled():
     limiter = RateLimiter(limit=0, window=60)
     for _ in range(100):
         assert limiter.allow("ip") is True
+
+
+def test_rate_limiter_evicts_stale_keys():
+    clock = FakeClock()
+    limiter = RateLimiter(limit=1, window=60, now=clock, evict_every=2)
+    limiter.allow("old")          # _since_evict -> 1 (no sweep yet)
+    clock.advance(61)             # "old" is now past the window
+    limiter.allow("active")       # _since_evict -> 2 => sweep removes expired "old"
+    assert "old" not in limiter._hits
+    assert "active" in limiter._hits
+
+
+def test_rate_limiter_keeps_live_keys_on_evict():
+    clock = FakeClock()
+    limiter = RateLimiter(limit=5, window=60, now=clock, evict_every=2)
+    limiter.allow("a")            # _since_evict -> 1
+    limiter.allow("a")            # _since_evict -> 2 => sweep, but "a" is still live
+    assert "a" in limiter._hits
