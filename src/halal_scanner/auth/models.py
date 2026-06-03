@@ -84,3 +84,17 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, index=True
     )
+
+
+class ScanHistory(Base):
+    """One recorded scan, owned by the user whose API key made it (product data)."""
+    __tablename__ = "scan_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    scan_type: Mapped[str] = mapped_column(String)          # classify | barcode | image
+    summary: Mapped[str] = mapped_column(String, default="")
+    verdict: Mapped[str] = mapped_column(String)            # halal | haram | shubhah
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )
