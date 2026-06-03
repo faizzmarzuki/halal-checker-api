@@ -52,6 +52,28 @@ def _parse_cors_origins(raw: str) -> list[str]:
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
+def _require_prod_posture(env: str, rate_limit_raw: str | None) -> None:
+    """In production, refuse to start unless a positive rate limit is set (HIGH-1).
+
+    Auth (a valid DB API key) is already mandatory in every environment; the only
+    insecure-by-default surface left is rate limiting, which is off unless
+    HALAL_RATE_LIMIT is set. In prod we require it to be a positive integer.
+    """
+    if env.strip().lower() not in {"prod", "production"}:
+        return
+    try:
+        limit = int(rate_limit_raw or "0")
+    except ValueError:
+        limit = 0
+    if limit <= 0:
+        got = "unset" if rate_limit_raw is None else repr(rate_limit_raw)
+        raise RuntimeError(
+            "In production (HALAL_ENV=production), HALAL_RATE_LIMIT must be a "
+            f"positive integer so the API is not unthrottled (got: {got}). "
+            "Set it before starting."
+        )
+
+
 app = FastAPI(
     title="Halal Scanner API",
     description="Classify food ingredients as halal / non-halal (haram) / shubhah.",
@@ -86,6 +108,11 @@ async def _security_headers(request, call_next):
 # Fail closed: refuse to start without a signing secret (see security spec).
 if not os.environ.get("HALAL_JWT_SECRET"):
     raise RuntimeError("HALAL_JWT_SECRET must be set to start the API.")
+
+# Fail closed in production: a rate limit must be configured (HIGH-1).
+_require_prod_posture(
+    os.environ.get("HALAL_ENV", "dev"), os.environ.get("HALAL_RATE_LIMIT")
+)
 
 # Create the accounts tables on startup (no-op if they already exist).
 Base.metadata.create_all(bind=engine)

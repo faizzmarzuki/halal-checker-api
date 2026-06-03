@@ -4,19 +4,17 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **Branches in flight (not yet merged to `main`):**
-  - `sub-project-11-dos-input-hardening` — pushed; open as **PR #1**
-    (`https://github.com/faizzmarzuki/halal-checker-api/pull/1`).
-  - `sub-project-12-image-response-hardening` — **stacked on SP11**; pushed; open
-    as **PR #2** (base = SP11 branch). Merge order: SP11, then SP12.
-  - `sub-project-13-ratelimit-hardening` — **stacked on SP12**; pushed; open as
-    **PR #3** (base = SP12 branch).
-  - `sub-project-14-prod-exposure` — **stacked on SP13**, local only.
-    Merge order: SP11 → SP12 → SP13 → SP14.
+- **SP11–SP14 are merged into `main`** (PRs #1–#4 closed; their branches deleted).
+  Watch out for the stacked-PR footgun that bit us once: a stacked PR's base is
+  the branch below it, so merging it lands changes on that branch, not `main` —
+  retarget each PR's base to `main` (in order) before merging, or merge the
+  bottom of the stack first and let the rest retarget.
+- **In flight:** `sub-project-15-fail-closed-prod` (from `main`) — the only open
+  branch. (If pushed: created as its own PR against `main`.)
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
-  `gh` CLI is NOT installed locally — PRs are created via the GitHub REST API
-  using the stored git credential.
-- **Tests:** `155 passing` (+2 skipped — Pillow-gated OCR tests; install the
+  `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
+  API using the stored git credential.
+- **Tests:** `158 passing` (+2 skipped — Pillow-gated OCR tests; install the
   `ocr` extra to run them), coverage ~98%. Run: `.venv/Scripts/python -m pytest -q`
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -59,6 +57,10 @@ review → merge workflow):
   when `HALAL_ENV` is `prod`/`production` (`_docs_kwargs`); opt-in CORS allow-list
   via `HALAL_CORS_ORIGINS` (`_parse_cors_origins` + `CORSMiddleware`,
   `allow_credentials=False`), default-closed when unset.
+- **SP15 Fail-Closed in Production** — `_require_prod_posture` refuses to start
+  when `HALAL_ENV=production` unless `HALAL_RATE_LIMIT` is a positive integer
+  (called at import time beside the JWT-secret guard). Completes HIGH-1 (auth
+  half was SP8). Default `dev` = no-op.
 
 ## Two auth layers (don't confuse)
 - **JWT Bearer** → `/auth/*`, `/keys`, `/admin/*` (humans managing accounts).
@@ -69,8 +71,9 @@ review → merge workflow):
 `HALAL_REFRESH_TTL`, `HALAL_ADMIN_EMAILS`, `HALAL_RATE_LIMIT`, `HALAL_RATE_WINDOW`,
 `HALAL_TRUST_PROXY` (set `1`/`true`/`yes` ONLY behind your own proxy → trust
 `X-Forwarded-For` for rate-limit keying; default off = socket peer),
-`HALAL_ENV` (set `prod`/`production` → hide `/docs`, `/redoc`, `/openapi.json`;
-default `dev` = docs on), `HALAL_CORS_ORIGINS` (comma-separated allow-list;
+`HALAL_ENV` (set `prod`/`production` → hide docs AND require `HALAL_RATE_LIMIT`
+to be a positive integer or the app refuses to start; default `dev` = docs on,
+no posture check), `HALAL_CORS_ORIGINS` (comma-separated allow-list;
 default empty = no CORS / browsers block cross-origin).
 
 ## Open work (NOT done yet) — from the QA/security pass
@@ -84,12 +87,9 @@ SP8 replaced the old plaintext key compare with a SHA-256 hash + DB lookup, so t
 is no exploitable timing side channel.
 Already fixed (cont.): MED-1 in-process half (proxy-aware IP + stale-key
 eviction, via SP13); L-2 (docs/schema disabled in prod, via SP14); L-3 (explicit
-opt-in CORS allow-list, via SP14).
+opt-in CORS allow-list, via SP14); HIGH-1 fully closed (auth always-on via SP8 +
+prod fail-closed rate limit via SP15).
 Still open:
-- **HIGH-1 (remaining)** — SP8 made scanning auth always-on (the auth half), but
-  the API does not yet *fail closed in production*: it will still start in prod
-  with rate limiting unset. A prod posture check (refuse to start unless a rate
-  limit is configured when `HALAL_ENV=production`) is the remaining piece.
 - **MED-1 (remaining)** — limiter is still per-process: not shared across uvicorn
   workers/replicas, so the effective limit = configured × worker count. Needs a
   Redis-backed (or API-gateway) limiter for scale-out. Deferred until a real
@@ -99,11 +99,11 @@ Still open:
 - **LOW** — HSTS at the proxy (the rest of the LOW items are done).
 
 ## Suggested next step
-All HIGH/MED/LOW that fit the in-process TDD pattern are done except two posture
-pieces: **HIGH-1 fail-closed-in-production** (small, self-contained → good "SP15")
-and **MED-1 Redis/shared limiter** (infra-gated — do it when actually scaling
-out). Otherwise the security backlog from the QA pass is essentially cleared; a
-good non-security next step would be a real product feature.
+The QA security backlog is cleared except infra-gated / accepted items: **MED-1
+Redis/shared limiter** (do it when scaling out to multiple workers), **MED-3**
+LLM prompt-injection (accepted), and **HSTS** at the reverse proxy. All HIGH and
+the in-process MED/LOW work is done. The natural next step is a real **product
+feature** rather than more hardening.
 
 ## Conventions for this repo
 - Chat in casual Malay (bahasa pasar); code/comments/docs/commits in English.
