@@ -1,7 +1,16 @@
-import { Stack } from "expo-router";
+import React from "react";
+import { Slot } from "expo-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "@/auth/AuthProvider";
 
-// Minimal root layout for the foundation scaffold. SP17 Task 6 replaces this with
-// the provider stack (QueryClient + AuthProvider) and the real route tree.
+const queryClient = new QueryClient();
+
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Slot />
+      </AuthProvider>
+    </QueryClientProvider>
+  );
 }
