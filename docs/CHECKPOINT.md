@@ -16,7 +16,7 @@ to pick up exactly here.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
 - **Tests:** backend `179 passing` (+2 skipped — Pillow-gated OCR; install the
-  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `12 passing`,
+  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `13 passing`,
   `cd mobile && npm test` (also `npm run typecheck`).
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs

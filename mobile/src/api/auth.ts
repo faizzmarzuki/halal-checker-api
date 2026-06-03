@@ -15,6 +15,9 @@ export function me(): Promise<Me> {
   return request<Me>("/auth/me", { auth: "bearer" });
 }
 
-export function logout(): Promise<unknown> {
-  return request("/auth/logout", { method: "POST", auth: "bearer" }).catch(() => ({}));
+export function logout(refresh: string): Promise<unknown> {
+  // /auth/logout revokes the refresh token (it takes the token in the body and is
+  // not JWT-protected). Best-effort: never block a local sign-out on it.
+  return request("/auth/logout", { method: "POST", body: { refresh_token: refresh } })
+    .catch(() => ({}));
 }

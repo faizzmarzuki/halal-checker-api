@@ -41,7 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await apiLogout();
+    const s = await readSession();
+    await apiLogout(s.refresh ?? "");  // revoke the refresh token server-side
     await clearSession();
     setEmail(null);
     setStatus("unauthenticated");

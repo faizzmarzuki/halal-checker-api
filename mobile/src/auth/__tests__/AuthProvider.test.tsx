@@ -48,3 +48,16 @@ test("signIn logs in, ensures a key, and stores email", async () => {
   expect(session.saveSession).toHaveBeenCalledWith({ email: "u@b.com" });
   expect(keysApi.ensureApiKey).toHaveBeenCalled();
 });
+
+test("signOut revokes the refresh token then clears the session", async () => {
+  (session.readSession as jest.Mock).mockResolvedValue({
+    access: "a", refresh: "the-refresh", apiKey: "hsk_x", email: "u@b.com",
+  });
+  (authApi.logout as jest.Mock).mockResolvedValue({});
+  const { getByTestId } = render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(getByTestId("status").props.children).toBe("authenticated"));
+  await act(async () => { getByTestId("signout").props.onPress(); });
+  await waitFor(() => expect(getByTestId("status").props.children).toBe("unauthenticated"));
+  expect(authApi.logout).toHaveBeenCalledWith("the-refresh");
+  expect(session.clearSession).toHaveBeenCalled();
+});
