@@ -34,8 +34,13 @@ from .schemas import (
     VerdictOut,
 )
 
+
 def _docs_kwargs(env: str) -> dict:
-    """FastAPI kwargs that hide the interactive docs/schema in production (L-2)."""
+    """FastAPI kwargs that hide the interactive docs/schema in production (L-2).
+
+    Only the explicit values "prod"/"production" disable the docs; any other
+    HALAL_ENV (including unset → "dev", and names like "staging") keeps them on.
+    """
     if env.strip().lower() in {"prod", "production"}:
         return {"docs_url": None, "redoc_url": None, "openapi_url": None}
     return {}
