@@ -4,19 +4,20 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **SP11–SP17 are merged into `main`** (PRs #1–#7 closed; branches deleted). The
+- **SP11–SP18 are merged into `main`** (PRs #1–#8 closed; branches deleted). The
   QA security track is done bar infra-gated items (see Open work); product so far:
-  scan history (SP16, backend) and the mobile app foundation (SP17).
+  scan history (SP16, backend), the mobile app foundation (SP17), and the mobile
+  classify screen (SP18).
   Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
   below it, so merging it lands changes on that branch, not `main` — retarget
   each PR's base to `main` (in order) before merging.
-- **In flight:** `sub-project-18-classify-screen` (from `main`) — the mobile Home
-  tab's "paste ingredients" classifier (first scanning screen).
+- **In flight:** `sub-project-19-history-screen` (from `main`) — the mobile
+  History tab (list `/history` + delete + clear).
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
 - **Tests:** backend `179 passing` (+2 skipped — Pillow-gated OCR; install the
-  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `21 passing`,
+  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `30 passing`,
   `cd mobile && npm test` (also `npm run typecheck`).
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -98,6 +99,12 @@ Mobile app (`mobile/`, React Native + Expo, iOS + Android):
   Includes **API-key 401 auto-recovery** (`withApiKeyRecovery` + `clearApiKey` →
   re-mint via `ensureApiKey` → retry once), closing the SP17 known gap. Functional
   only; styling minimal.
+- **SP19 History Screen** — the History tab lists the user's scans from
+  `/history` (`src/api/history.ts`: `listHistory`/`deleteHistory`/`clearHistory`,
+  bearer) with per-row delete, a clear-all header, pull-to-refresh, and
+  empty/loading/error states via TanStack Query (`useQuery`/`useMutation`
+  invalidating `["history"]`). `src/lib/time.ts` `timeAgo` shows relative times.
+  Functional only.
 
 ## Two auth layers (don't confuse)
 - **JWT Bearer** → `/auth/*`, `/keys`, `/admin/*` (humans managing accounts).
@@ -136,11 +143,12 @@ Still open:
 - **LOW** — HSTS at the proxy (the rest of the LOW items are done).
 
 ## Suggested next step
-**SP19 — Barcode + image scanning** (camera): `/scan-barcode` (expo-camera /
+**SP20 — Barcode + image scanning** (camera): `/scan-barcode` (expo-camera /
 barcode scanner or manual entry) and `/scan-image` (camera/gallery → OCR), both
-reusing `VerdictResult`. Then **SP20 — History** screen on `/history`
-(list/detail/delete). The visual **design/vibe is still to be shared** by the
-user; screens stay functional until then, with a design pass after.
+reusing `VerdictResult`. Best done after the user tests the current screens
+on-device and shares the visual **design/vibe** (camera UI is very visual). After
+that, a **design pass** across all screens, and a backend **deploy** so the app
+has a stable URL.
 
 Backend backlog (infra-gated/accepted only): MED-1 (Redis shared limiter, when
 scaling out), MED-3 (LLM prompt-injection, accepted), HSTS (proxy). A backend
