@@ -93,10 +93,30 @@ def _build_limiter() -> RateLimiter:
 limiter = _build_limiter()
 
 
+def _trust_proxy() -> bool:
+    """Whether to believe X-Forwarded-For (operator opt-in via env)."""
+    return os.environ.get("HALAL_TRUST_PROXY", "").strip().lower() in {"1", "true", "yes"}
+
+
+def client_ip(request: Request) -> str:
+    """Best-effort client IP.
+
+    Honour X-Forwarded-For ONLY when HALAL_TRUST_PROXY is set — i.e. the operator
+    asserts the service sits behind their own proxy that sets the header. The
+    left-most XFF entry is the original client. Without the opt-in, an attacker
+    could spoof XFF to evade or poison the limiter, so we use the socket peer.
+    """
+    if _trust_proxy():
+        xff = request.headers.get("x-forwarded-for")
+        if xff:
+            return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 def rate_limit(
     request: Request, x_api_key: str | None = Header(default=None)
 ) -> None:
     """Dependency: throttle by API key (if present) else client IP."""
-    key = x_api_key or (request.client.host if request.client else "unknown")
+    key = x_api_key or client_ip(request)
     if not limiter.allow(key):
         raise HTTPException(status_code=429, detail="Rate limit exceeded.")
