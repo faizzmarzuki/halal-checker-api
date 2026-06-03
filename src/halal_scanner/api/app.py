@@ -7,6 +7,7 @@ Run locally:
 """
 from __future__ import annotations
 
+import logging
 import os
 
 import requests
@@ -168,11 +169,28 @@ async def read_capped_body(request: Request, max_bytes: int) -> bytes:
 _PROTECTED = [Depends(rate_limit)]
 
 
+logger = logging.getLogger(__name__)
+
+
 def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
     """Translate each ingredient to English when enabled; otherwise pass through."""
     if not enabled:
         return ingredients
     return [_translator.to_english(item) for item in ingredients]
+
+
+def _record_scan(
+    db: Session, user_id: int, scan_type: str, summary: str, verdict: str
+) -> None:
+    """Record a scan to history without ever breaking the scan response.
+
+    ``history.record`` is already best-effort; this guard is defence in depth for
+    the core scan path — an unexpected error in recording must never 500 a scan.
+    """
+    try:
+        history.record(db, user_id, scan_type, summary, verdict)
+    except Exception:
+        logger.exception("scan history recording failed for user %s", user_id)
 
 
 @app.post("/classify", response_model=VerdictOut, dependencies=_PROTECTED)
@@ -188,10 +206,7 @@ def classify(
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(req.ingredients, req.translate)
     verdict = engine.classify(ingredients)
-    try:
-        history.record(db, key.user_id, "classify", ", ".join(req.ingredients), verdict.verdict.value)
-    except Exception:
-        pass
+    _record_scan(db, key.user_id, "classify", ", ".join(req.ingredients), verdict.verdict.value)
     return VerdictOut.from_verdict(verdict)
 
 
@@ -212,13 +227,10 @@ def scan_barcode(
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(product.ingredients, req.translate)
     verdict = engine.classify(ingredients)
-    try:
-        history.record(
-            db, key.user_id, "barcode",
-            f"{product.barcode} ({product.name})", verdict.verdict.value,
-        )
-    except Exception:
-        pass
+    _record_scan(
+        db, key.user_id, "barcode",
+        f"{product.barcode} ({product.name})", verdict.verdict.value,
+    )
     return BarcodeVerdictOut.from_verdict_and_product(
         verdict, barcode=product.barcode, product_name=product.name
     )
@@ -245,10 +257,7 @@ async def scan_image(
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(ingredients, translate)
     verdict = engine.classify(ingredients)
-    try:
-        history.record(db, key.user_id, "image", text, verdict.verdict.value)
-    except Exception:
-        pass
+    _record_scan(db, key.user_id, "image", text, verdict.verdict.value)
     return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
 
