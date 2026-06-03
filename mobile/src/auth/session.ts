@@ -1,4 +1,22 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+
+// expo-secure-store is native-only. On web (and tests under Expo web) fall back
+// to localStorage so the session layer works everywhere. Native uses the
+// encrypted store.
+const webStorage = {
+  async getItemAsync(k: string): Promise<string | null> {
+    return typeof localStorage !== "undefined" ? localStorage.getItem(k) : null;
+  },
+  async setItemAsync(k: string, v: string): Promise<void> {
+    if (typeof localStorage !== "undefined") localStorage.setItem(k, v);
+  },
+  async deleteItemAsync(k: string): Promise<void> {
+    if (typeof localStorage !== "undefined") localStorage.removeItem(k);
+  },
+};
+
+const storage = Platform.OS === "web" ? webStorage : SecureStore;
 
 export type Session = {
   access: string | null;
@@ -29,23 +47,23 @@ export async function saveSession(s: SaveInput): Promise<void> {
     [KEYS.email, s.email],
   ];
   for (const [k, v] of entries) {
-    if (v !== undefined) await SecureStore.setItemAsync(k, v);
+    if (v !== undefined) await storage.setItemAsync(k, v);
   }
 }
 
 export async function readSession(): Promise<Session> {
   return {
-    access: await SecureStore.getItemAsync(KEYS.access),
-    refresh: await SecureStore.getItemAsync(KEYS.refresh),
-    apiKey: await SecureStore.getItemAsync(KEYS.apiKey),
-    email: await SecureStore.getItemAsync(KEYS.email),
+    access: await storage.getItemAsync(KEYS.access),
+    refresh: await storage.getItemAsync(KEYS.refresh),
+    apiKey: await storage.getItemAsync(KEYS.apiKey),
+    email: await storage.getItemAsync(KEYS.email),
   };
 }
 
 export async function clearSession(): Promise<void> {
-  for (const k of Object.values(KEYS)) await SecureStore.deleteItemAsync(k);
+  for (const k of Object.values(KEYS)) await storage.deleteItemAsync(k);
 }
 
 export async function clearApiKey(): Promise<void> {
-  await SecureStore.deleteItemAsync(KEYS.apiKey);
+  await storage.deleteItemAsync(KEYS.apiKey);
 }
