@@ -34,10 +34,18 @@ from .schemas import (
     VerdictOut,
 )
 
+def _docs_kwargs(env: str) -> dict:
+    """FastAPI kwargs that hide the interactive docs/schema in production (L-2)."""
+    if env.strip().lower() in {"prod", "production"}:
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {}
+
+
 app = FastAPI(
     title="Halal Scanner API",
     description="Classify food ingredients as halal / non-halal (haram) / shubhah.",
     version="0.1.0",
+    **_docs_kwargs(os.environ.get("HALAL_ENV", "dev")),
 )
 
 

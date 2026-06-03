@@ -202,3 +202,31 @@ def test_classify_rejects_unexpected_field():
 def test_scan_barcode_rejects_unexpected_field():
     resp = client.post("/scan-barcode", json={"barcode": "0123456789", "foo": 1})
     assert resp.status_code == 422
+
+
+def test_docs_kwargs_dev_is_empty():
+    from halal_scanner.api.app import _docs_kwargs
+
+    assert _docs_kwargs("dev") == {}
+    assert _docs_kwargs("") == {}
+
+
+def test_docs_kwargs_production_disables_docs():
+    from halal_scanner.api.app import _docs_kwargs
+
+    expected = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    assert _docs_kwargs("production") == expected
+    assert _docs_kwargs("prod") == expected
+    assert _docs_kwargs(" PROD ") == expected
+
+
+def test_docs_disabled_app_has_none_urls():
+    from fastapi import FastAPI
+
+    from halal_scanner.api.app import _docs_kwargs
+
+    prod = FastAPI(**_docs_kwargs("production"))
+    assert prod.docs_url is None
+    assert prod.openapi_url is None
+    dev = FastAPI(**_docs_kwargs("dev"))
+    assert dev.docs_url == "/docs"
