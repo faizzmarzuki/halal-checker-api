@@ -6,8 +6,9 @@ import * as scan from "@/api/scan";
 
 jest.mock("@/api/scan");
 
+let client: QueryClient;
+
 function wrap(ui: React.ReactElement) {
-  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return <QueryClientProvider client={client}>{ui}</QueryClientProvider>;
 }
 
@@ -18,7 +19,12 @@ const verdict = {
   disclaimer: "Not a religious ruling.",
 };
 
-beforeEach(() => jest.resetAllMocks());
+beforeEach(() => {
+  jest.resetAllMocks();
+  client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { gcTime: 0 } } });
+});
+
+afterEach(() => client.clear());
 
 test("checking ingredients shows the verdict", async () => {
   (scan.classify as jest.Mock).mockResolvedValue(verdict);
