@@ -132,14 +132,17 @@ class ScanBarcodeRequest(BaseModel):
 ```
 
 Scope is limited to the two scanning request models. The auth/account request
-models (register, login, etc.) are left for a later focused pass.
+models (`auth/schemas.py`, `auth/keys_schemas.py`, `auth/recovery_schemas.py`)
+already set `extra="forbid"`, so after this change L-5 is closed across the whole
+request surface.
 
 ## Out of scope (remain open)
 
 MED-1 (proxy-aware / Redis-backed rate limiting), MED-4 (already mitigated — see
 above), MED-3 (LLM prompt-injection note — accepted risk, mitigations already in
-place), HSTS-in-app, `extra="forbid"` on auth models, and disabling public
-`/docs` in production. All stay recorded in `QA_SECURITY_FINDINGS.txt`.
+place), HSTS-in-app, and disabling public `/docs` in production. All stay
+recorded in `QA_SECURITY_FINDINGS.txt`. (Auth-model `extra="forbid"` was already
+present, so L-5 is fully closed — not deferred.)
 
 ## Testing (TDD, red → green)
 
