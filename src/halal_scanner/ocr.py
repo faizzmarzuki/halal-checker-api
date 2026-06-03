@@ -10,10 +10,51 @@ or tests. Tests pass a trivial fake backend instead.
 """
 from __future__ import annotations
 
+import os
+import shutil
 from typing import Callable
 
 # A backend takes the raw image bytes and returns the recognized text.
 OcrBackend = Callable[[bytes], str]
+
+
+def _resolve_tesseract_cmd(env, which=shutil.which, exists=os.path.exists):
+    """Return a tesseract executable path to set on pytesseract, or None.
+
+    pytesseract shells out to the ``tesseract`` binary, which on Windows is
+    commonly installed (e.g. ``C:\\Program Files\\Tesseract-OCR``) but NOT added
+    to PATH, so the default lookup fails. Resolution order:
+
+    1. ``HALAL_TESSERACT_CMD`` env var, if it points at an existing file.
+    2. ``tesseract`` already on PATH -> return None (no override needed).
+    3. Common Windows install locations -> first one that exists.
+
+    Returns None when nothing is found (the caller leaves pytesseract's default,
+    and OcrEngine.extract_text turns the resulting failure into "").
+    """
+    explicit = env.get("HALAL_TESSERACT_CMD")
+    if explicit and exists(explicit):
+        return explicit
+    if which("tesseract"):
+        return None
+    candidates = []
+    for base_var in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"):
+        base = env.get(base_var)
+        if base:
+            candidates.append(os.path.join(base, "Tesseract-OCR", "tesseract.exe"))
+    local = env.get("LOCALAPPDATA")
+    if local:
+        candidates.append(
+            os.path.join(local, "Programs", "Tesseract-OCR", "tesseract.exe")
+        )
+    candidates += [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    for cand in candidates:
+        if exists(cand):
+            return cand
+    return None
 
 
 # Bound the decoded pixel area to defend against decompression bombs (MED-2).
@@ -57,6 +98,11 @@ def _default_backend(image_bytes: bytes) -> str:
     """Tesseract OCR backend. Imports are lazy so deps are optional."""
     import pytesseract
 
+    # Point pytesseract at the engine if it's installed but not on PATH (common
+    # on Windows). No-op when already on PATH or not found.
+    cmd = _resolve_tesseract_cmd(os.environ)
+    if cmd:
+        pytesseract.pytesseract.tesseract_cmd = cmd
     return pytesseract.image_to_string(_open_image(image_bytes))
 
 
