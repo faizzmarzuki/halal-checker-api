@@ -91,6 +91,31 @@ def test_empty_inputs_are_skipped():
     assert len(v.ingredients) == 1
 
 
+def test_unreadable_ingredient_is_shubhah_not_skipped():
+    # Non-Latin script with no translation normalizes to "" but is NOT blank;
+    # it must surface as SHUBHAH (we couldn't read it), never be dropped.
+    c = make_classifier()
+    v = c.classify(["돼지고기", "설탕", "닭"])  # pork, sugar, chicken (Korean)
+    assert len(v.ingredients) == 3
+    assert all(r.status is Status.SHUBHAH for r in v.ingredients)
+    assert all(r.source is Source.NONE for r in v.ingredients)
+    assert all(r.confidence is Confidence.LOW for r in v.ingredients)
+
+
+def test_all_unreadable_never_returns_halal():
+    c = make_classifier()
+    v = c.classify(["돼지고기", "설탕", "닭"])
+    assert v.verdict is Status.SHUBHAH
+    assert v.verdict is not Status.HALAL
+
+
+def test_no_classifiable_ingredients_defaults_to_shubhah():
+    # Empty / all-blank input must NOT confidently report HALAL.
+    c = make_classifier()
+    assert c.classify([]).verdict is Status.SHUBHAH
+    assert c.classify(["", "   ", None]).verdict is Status.SHUBHAH
+
+
 def test_disclaimer_present():
     c = make_classifier()
     v = c.classify(["sugar"])
