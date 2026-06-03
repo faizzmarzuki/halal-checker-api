@@ -66,9 +66,11 @@ def _require_prod_posture(env: str, rate_limit_raw: str | None) -> None:
     except ValueError:
         limit = 0
     if limit <= 0:
+        got = "unset" if rate_limit_raw is None else repr(rate_limit_raw)
         raise RuntimeError(
             "In production (HALAL_ENV=production), HALAL_RATE_LIMIT must be a "
-            "positive integer so the API is not unthrottled. Set it before starting."
+            f"positive integer so the API is not unthrottled (got: {got}). "
+            "Set it before starting."
         )
 
 

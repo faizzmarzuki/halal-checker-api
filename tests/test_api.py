@@ -280,9 +280,13 @@ def test_require_prod_posture_dev_is_noop():
 def test_require_prod_posture_production_requires_rate_limit():
     from halal_scanner.api.app import _require_prod_posture
 
-    for bad in (None, "0", "abc"):
+    # Missing, zero, non-numeric, negative, whitespace, and float-like values
+    # all fail closed. Also exercise the "prod" alias with a bad value.
+    for bad in (None, "0", "abc", "-1", "   ", "1.5"):
         with pytest.raises(RuntimeError):
             _require_prod_posture("production", bad)
+    with pytest.raises(RuntimeError):
+        _require_prod_posture("prod", "0")
 
 
 def test_require_prod_posture_production_with_limit_ok():
