@@ -4,20 +4,19 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **SP11–SP23 are merged into `main`** (PRs #1–#13 closed; branches deleted).
+- **SP11–SP24 are merged into `main`** (PRs #1–#14 closed; branches deleted).
   QA security track is done bar infra-gated items (see Open work); product so far:
-  scan history (SP16, backend), the mobile app foundation (SP17), and the mobile
-  classify screen (SP18).
+  scan history (SP16, backend) + the mobile app (foundation through barcode scan).
   Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
   below it, so merging it lands changes on that branch, not `main` — retarget
   each PR's base to `main` (in order) before merging.
-- **In flight:** `sub-project-24-barcode-scan` (from `main`) — barcode camera scan
-  + manual entry, looked up via `/scan-barcode`.
+- **In flight:** `sp25-image-scan` (from `main`) — photo scan: take/pick an image
+  and OCR it via `/scan-image`. Implemented + tested locally; not yet PR'd/merged.
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
 - **Tests:** backend `179 passing` (+2 skipped — Pillow-gated OCR; install the
-  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `38 passing`,
+  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `45 passing`,
   `cd mobile && npm test` (also `npm run typecheck`).
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -126,6 +125,19 @@ Mobile app (`mobile/`, React Native + Expo, iOS + Android):
   `scanned` guard + permission gate, plus a manual barcode `Input` fallback; both
   feed one mutation → `VerdictResult` (+ product name) / error / "Scan again".
   Tests mock `expo-camera`; 38 mobile tests total.
+- **SP25 Image/Photo Scan** — `scanImage(uri)` in `src/api/scan.ts` uploads the
+  raw image bytes to `/scan-image` (apiKey auth + 401 recovery; `ImageVerdictOut`
+  = `VerdictOut` + `extracted_text`). Because `request()` is JSON-only, it streams
+  the file via `expo-file-system`'s **`uploadAsync`** (imported from
+  `expo-file-system/legacy` — the root export has no `uploadAsync`) with
+  `FileSystemUploadType.BINARY_CONTENT` + `X-API-Key`. New screen
+  `app/(app)/photo.tsx` (hidden via `href: null`, pushed from a Home "Scan photo"
+  button): "Take photo" (`expo-image-picker` `launchCameraAsync` + camera-perm
+  gate) and "Choose from gallery" (`launchImageLibraryAsync`, system picker, no
+  explicit perm), shows a preview, runs one mutation → `VerdictResult`
+  (+ OCR'd text) / error / "Scan another". Tests mock `expo-image-picker` +
+  `expo-file-system/legacy`; 45 mobile tests total. Added `expo-image-picker`
+  (~17.0.11, SDK-54-aligned).
 - **SP21/SP22 Expo SDK pin** — `create-expo-app` scaffolded on SDK 56 (the npm
   `latest`), but the user's latest **Expo Go only supports SDK 54**. Pinned
   56→55 (SP21) then 55→54 (SP22) via `expo install --fix` + realigned devDeps
@@ -184,12 +196,13 @@ Still open:
 - **LOW** — HSTS at the proxy (the rest of the LOW items are done).
 
 ## Suggested next step
-**SP25 — Image/photo scan** (the other half of camera): `expo-image-picker`
-(take a photo or pick from gallery) → upload the raw bytes to `/scan-image` (use
-`expo-file-system` `uploadAsync` with `BINARY_CONTENT` + the `X-API-Key` header)
-→ OCR → reuse `VerdictResult`. Reach it from Home like the barcode screen.
-Fast-follows: a custom heavy display font (`expo-font`), and a backend **deploy**
-(Render/Fly/Railway) so the app has a stable URL instead of LAN/tunnel.
+All four core scan flows now exist on mobile (classify, history, barcode, photo).
+Candidate next steps:
+- **Backend deploy** (Render/Fly/Railway) so the app has a stable URL instead of
+  LAN/tunnel — unblocks real-world phone use without the dev machine running.
+- **Custom heavy display font** (`expo-font`) to land the cream/editorial vibe.
+- On-device pass of the camera screens (barcode + photo) — both shipped untested
+  on a physical device (the user chose to keep building first).
 
 Backend backlog (infra-gated/accepted only): MED-1 (Redis shared limiter, when
 scaling out), MED-3 (LLM prompt-injection, accepted), HSTS (proxy). A backend
