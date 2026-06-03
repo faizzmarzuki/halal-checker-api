@@ -5,9 +5,13 @@ import BarcodeScreen from "../barcode";
 import * as scan from "@/api/scan";
 import { useCameraPermissions } from "expo-camera";
 
+const mockCameraProps: Record<string, any> = {};
 jest.mock("@/api/scan");
 jest.mock("expo-camera", () => ({
-  CameraView: () => null,
+  CameraView: (props: Record<string, any>) => {
+    Object.assign(mockCameraProps, props);
+    return null;
+  },
   useCameraPermissions: jest.fn(() => [{ granted: true }, jest.fn()]),
 }));
 
@@ -47,6 +51,11 @@ test("a lookup error is shown", async () => {
   fireEvent.changeText(getByTestId("barcode"), "0000000000");
   fireEvent.press(getByTestId("lookup"));
   expect((await findByTestId("error")).props.children).toContain("Product not found");
+});
+
+test("the live camera enables autofocus so a close barcode can focus and decode", () => {
+  render(wrap(<BarcodeScreen />));
+  expect(mockCameraProps.autofocus).toBe("on");
 });
 
 test("shows Allow camera when permission is undetermined", () => {
