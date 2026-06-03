@@ -39,3 +39,9 @@ QA_SECURITY_FINDINGS.txt
 # ---- Env files (never commit secrets) ----
 .env
 .env.*
+
+# ---- Expo mobile app (mobile/) ----
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
