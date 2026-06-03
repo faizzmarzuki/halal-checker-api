@@ -7,17 +7,23 @@ Run locally:
 """
 from __future__ import annotations
 
+import logging
 import os
 
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy.orm import Session
+
 from ..auth import router as auth_router  # also registers the ORM models
 from ..auth.keys_router import router as keys_router
 from ..auth.recovery_router import router as recovery_router
 from ..auth.admin_router import router as admin_router
-from ..db import Base, engine
+from .history_router import router as history_router
+from ..db import Base, engine, get_db
+from .. import history
+from ..auth.models import ApiKey
 
 from ..classifier import HalalClassifier
 from ..gemma import GemmaClient
@@ -25,7 +31,7 @@ from ..ocr import OcrEngine, parse_ingredients
 from ..openfoodfacts import OpenFoodFactsClient
 from ..rulebook import Rulebook
 from ..translator import Translator
-from .security import rate_limit, require_api_key
+from .security import current_api_key, rate_limit
 from .schemas import (
     BarcodeVerdictOut,
     ClassifyRequest,
@@ -121,6 +127,7 @@ app.include_router(auth_router)
 app.include_router(keys_router)
 app.include_router(recovery_router)
 app.include_router(admin_router)
+app.include_router(history_router)
 
 # Built once at import time and reused across requests (loading the rulebook
 # and creating the HTTP client are not free, and they hold no per-request state).
@@ -159,7 +166,10 @@ async def read_capped_body(request: Request, max_bytes: int) -> bytes:
 # The scanning endpoints require a valid DB-backed X-API-Key (always on; see
 # security.py) and are rate limited (off by default). /health is left open for
 # liveness probes.
-_PROTECTED = [Depends(require_api_key), Depends(rate_limit)]
+_PROTECTED = [Depends(rate_limit)]
+
+
+logger = logging.getLogger(__name__)
 
 
 def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
@@ -169,8 +179,26 @@ def _translate_all(ingredients: list[str], enabled: bool) -> list[str]:
     return [_translator.to_english(item) for item in ingredients]
 
 
+def _record_scan(
+    db: Session, user_id: int, scan_type: str, summary: str, verdict: str
+) -> None:
+    """Record a scan to history without ever breaking the scan response.
+
+    ``history.record`` is already best-effort; this guard is defence in depth for
+    the core scan path — an unexpected error in recording must never 500 a scan.
+    """
+    try:
+        history.record(db, user_id, scan_type, summary, verdict)
+    except Exception:
+        logger.exception("scan history recording failed for user %s", user_id)
+
+
 @app.post("/classify", response_model=VerdictOut, dependencies=_PROTECTED)
-def classify(req: ClassifyRequest) -> VerdictOut:
+def classify(
+    req: ClassifyRequest,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+) -> VerdictOut:
     """Classify a list of ingredient strings and return an overall verdict."""
     # Honour the per-request switch: None disables the Gemma fallback entirely,
     # making the call fully deterministic and network-free.
@@ -178,11 +206,18 @@ def classify(req: ClassifyRequest) -> VerdictOut:
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(req.ingredients, req.translate)
     verdict = engine.classify(ingredients)
+    # Summary is the user's original input (what they scanned), not the
+    # translated text actually classified — that's what they'll recognise.
+    _record_scan(db, key.user_id, "classify", ", ".join(req.ingredients), verdict.verdict.value)
     return VerdictOut.from_verdict(verdict)
 
 
 @app.post("/scan-barcode", response_model=BarcodeVerdictOut, dependencies=_PROTECTED)
-def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
+def scan_barcode(
+    req: ScanBarcodeRequest,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+) -> BarcodeVerdictOut:
     """Look up a barcode on OpenFoodFacts, then classify its ingredients."""
     product = _off_client.fetch(req.barcode)
     if product is None:
@@ -194,6 +229,10 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
     engine = HalalClassifier(_rulebook, gemma_client=client)
     ingredients = _translate_all(product.ingredients, req.translate)
     verdict = engine.classify(ingredients)
+    _record_scan(
+        db, key.user_id, "barcode",
+        f"{product.barcode} ({product.name})", verdict.verdict.value,
+    )
     return BarcodeVerdictOut.from_verdict_and_product(
         verdict, barcode=product.barcode, product_name=product.name
     )
@@ -201,21 +240,28 @@ def scan_barcode(req: ScanBarcodeRequest) -> BarcodeVerdictOut:
 
 @app.post("/scan-image", response_model=ImageVerdictOut, dependencies=_PROTECTED)
 async def scan_image(
-    request: Request, use_gemma: bool = True, translate: bool = False
+    request: Request,
+    key: ApiKey = Depends(current_api_key),
+    db: Session = Depends(get_db),
+    use_gemma: bool = True,
+    translate: bool = False,
 ) -> ImageVerdictOut:
     """OCR a label image (sent as the raw request body), then classify it."""
     image_bytes = await read_capped_body(request, MAX_IMAGE_BYTES)
     text = _ocr_engine.extract_text(image_bytes)
-    ingredients = parse_ingredients(text)
-    if not ingredients:
+    parsed = parse_ingredients(text)
+    if not parsed:
         raise HTTPException(
             status_code=422,
             detail="Could not read any text from the image.",
         )
     client = _gemma_client if use_gemma else None
     engine = HalalClassifier(_rulebook, gemma_client=client)
-    ingredients = _translate_all(ingredients, translate)
+    ingredients = _translate_all(parsed, translate)
     verdict = engine.classify(ingredients)
+    # Summary is the parsed (pre-translation) ingredient list — legible, unlike
+    # the raw multi-line OCR dump.
+    _record_scan(db, key.user_id, "image", ", ".join(parsed), verdict.verdict.value)
     return ImageVerdictOut.from_verdict_and_text(verdict, extracted_text=text)
 
 

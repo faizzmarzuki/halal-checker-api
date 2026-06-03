@@ -6,6 +6,7 @@ independently of the engine.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -126,3 +127,13 @@ class HealthOut(BaseModel):
     """Response for GET /health."""
     status: str
     ollama_available: bool
+
+
+class ScanHistoryOut(BaseModel):
+    """One scan-history row, serialized for GET /history."""
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    scan_type: str
+    summary: str
+    verdict: str
+    created_at: datetime

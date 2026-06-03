@@ -20,16 +20,24 @@ from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..auth.keys import verify_key
+from ..auth.models import ApiKey
 from ..db import get_db
 
 
-def require_api_key(
+def current_api_key(
     x_api_key: str | None = Header(default=None),
     db: Session = Depends(get_db),
-) -> None:
-    """Dependency: require a valid, non-revoked DB API key in X-API-Key."""
-    if not x_api_key or verify_key(db, x_api_key) is None:
+) -> ApiKey:
+    """Dependency: require a valid, non-revoked DB API key and return its row.
+
+    The returned row is bound to the request's DB session: read what you need
+    (e.g. ``key.user_id``) within the request — do not cache it across requests,
+    or attribute access may raise DetachedInstanceError once the session closes.
+    """
+    key = verify_key(db, x_api_key) if x_api_key else None
+    if key is None:
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+    return key
 
 
 class RateLimiter:
