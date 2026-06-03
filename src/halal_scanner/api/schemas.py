@@ -6,15 +6,25 @@ independently of the engine.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 from ..models import IngredientResult, ScanVerdict
+
+# Request-size caps (HIGH-2): bound the list length and each item's length so a
+# single request cannot exhaust memory or amplify into thousands of LLM calls.
+MAX_INGREDIENTS = 200
+MAX_INGREDIENT_LEN = 200
 
 
 class ClassifyRequest(BaseModel):
     """Body for POST /classify."""
     # min_length=1 => an empty list is rejected with HTTP 422 automatically.
-    ingredients: list[str] = Field(..., min_length=1)
+    # max_length caps the list; each item is length-bounded too.
+    ingredients: list[
+        Annotated[str, StringConstraints(min_length=1, max_length=MAX_INGREDIENT_LEN)]
+    ] = Field(..., min_length=1, max_length=MAX_INGREDIENTS)
     use_gemma: bool = True
     # When true, translate each ingredient to English before classifying.
     translate: bool = False
@@ -63,8 +73,9 @@ class VerdictOut(BaseModel):
 
 class ScanBarcodeRequest(BaseModel):
     """Body for POST /scan-barcode."""
-    # min_length=1 => an empty barcode is rejected with HTTP 422 automatically.
-    barcode: str = Field(..., min_length=1)
+    # A real barcode is 6-14 digits. Anything else (letters, path traversal,
+    # URL tricks) is rejected with HTTP 422 before any outbound call (HIGH-3).
+    barcode: str = Field(..., pattern=r"^[0-9]{6,14}$")
     use_gemma: bool = True
     # When true, translate the product's ingredients to English before classifying.
     translate: bool = False

@@ -63,6 +63,12 @@ def test_classify_empty_list_rejected():
     assert resp.status_code == 422
 
 
+def test_classify_blank_ingredient_string_rejected():
+    # The per-item StringConstraints(min_length=1) rejects blank strings.
+    resp = client.post("/classify", json={"ingredients": [""]})
+    assert resp.status_code == 422
+
+
 @patch("halal_scanner.api.app._off_client.fetch")
 def test_scan_barcode_classifies_product(mock_fetch):
     mock_fetch.return_value = Product(
@@ -145,3 +151,37 @@ def test_health():
     body = resp.json()
     assert body["status"] == "ok"
     assert isinstance(body["ollama_available"], bool)
+
+
+def test_classify_too_many_ingredients_rejected():
+    resp = client.post("/classify", json={"ingredients": ["sugar"] * 201})
+    assert resp.status_code == 422
+
+
+def test_classify_overlong_ingredient_string_rejected():
+    resp = client.post("/classify", json={"ingredients": ["x" * 201]})
+    assert resp.status_code == 422
+
+
+def test_classify_at_limits_accepted():
+    resp = client.post(
+        "/classify",
+        json={"ingredients": ["x" * 200] * 200, "use_gemma": False},
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["abc", "0000/../../../admin?x=#", "@evil.com/path", "12345", "1" * 15],
+)
+def test_scan_barcode_invalid_rejected(bad):
+    resp = client.post("/scan-barcode", json={"barcode": bad})
+    assert resp.status_code == 422
+
+
+def test_scan_image_too_large_returns_413():
+    big = b"x" * (5 * 1024 * 1024 + 1)
+    resp = client.post("/scan-image", content=big)
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"].lower()

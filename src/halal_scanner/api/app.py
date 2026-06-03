@@ -61,6 +61,31 @@ _off_client = OpenFoodFactsClient()
 _ocr_engine = OcrEngine()
 _translator = Translator()
 
+# Cap the raw image body to bound memory use on /scan-image (HIGH-2). 5 MB is
+# generous for a phone photo of an ingredient label.
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+async def read_capped_body(request: Request, max_bytes: int) -> bytes:
+    """Read the request body, rejecting anything larger than max_bytes (HTTP 413).
+
+    Content-Length is only trusted to reject early (it can be absent or wrong);
+    the cap enforced while streaming is authoritative.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            if int(declared) > max_bytes:
+                raise HTTPException(status_code=413, detail="Image too large.")
+        except ValueError:
+            pass  # Unparseable header: ignore and rely on the streaming cap.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_bytes:
+            raise HTTPException(status_code=413, detail="Image too large.")
+    return bytes(body)
+
 
 # The scanning endpoints require a valid DB-backed X-API-Key (always on; see
 # security.py) and are rate limited (off by default). /health is left open for
@@ -110,7 +135,7 @@ async def scan_image(
     request: Request, use_gemma: bool = True, translate: bool = False
 ) -> ImageVerdictOut:
     """OCR a label image (sent as the raw request body), then classify it."""
-    image_bytes = await request.body()
+    image_bytes = await read_capped_body(request, MAX_IMAGE_BYTES)
     text = _ocr_engine.extract_text(image_bytes)
     ingredients = parse_ingredients(text)
     if not ingredients:
