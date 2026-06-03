@@ -35,6 +35,7 @@ export default function BarcodeScreen() {
         <View style={{ height: 240, borderRadius: radius.card, overflow: "hidden", backgroundColor: "#000" }}>
           <CameraView
             style={{ flex: 1 }}
+            autofocus="on"
             barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e"] }}
             onBarcodeScanned={scanned ? undefined : ({ data }: { data: string }) => lookup(data)}
           />

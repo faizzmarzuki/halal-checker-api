@@ -16,6 +16,7 @@ class Source(str, Enum):
     """Where a classification came from."""
     RULEBOOK = "rulebook"
     GEMMA = "gemma"
+    NONE = "none"  # could not read/understand the ingredient at all
 
 
 class Confidence(str, Enum):

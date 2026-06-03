@@ -11,6 +11,16 @@ DISCLAIMER = (
 )
 
 
+def _has_content(raw) -> bool:
+    """True if raw is a string with non-whitespace content.
+
+    Blank/None inputs are skipped entirely; a string that has visible
+    characters but normalizes to "" (e.g. a non-Latin script) is NOT skipped —
+    it is classified as unreadable (SHUBHAH) so it can never vanish into HALAL.
+    """
+    return isinstance(raw, str) and bool(raw.strip())
+
+
 def _match_keyword(tokens: set[str], keywords: list[str]) -> str | None:
     """Return the first keyword whose words all appear in tokens."""
     for kw in keywords:
@@ -28,7 +38,7 @@ class HalalClassifier:
         results = [
             self._classify_one(raw)
             for raw in ingredients
-            if normalize(raw)  # skip empty / non-string
+            if _has_content(raw)  # skip only genuinely blank / non-string input
         ]
         verdict = self._aggregate(results)
         return ScanVerdict(
@@ -40,10 +50,27 @@ class HalalClassifier:
 
     def _classify_one(self, raw) -> IngredientResult:
         text = normalize(raw)
+        if not text:
+            # Raw had content (it passed _has_content) but normalized to nothing
+            # — e.g. a non-Latin script we can't match without translation. We
+            # could not read it, so it is SHUBHAH (unsure), never silently HALAL.
+            return self._unreadable(raw)
         entry = self.rulebook.lookup(text)
         if entry is not None:
             return self._from_rulebook(raw, text, entry)
         return self._from_gemma(raw, text)
+
+    @staticmethod
+    def _unreadable(raw) -> IngredientResult:
+        return IngredientResult(
+            input=raw, canonical="", status=Status.SHUBHAH,
+            source=Source.NONE, confidence=Confidence.LOW,
+            reason=(
+                "Could not read this ingredient (unsupported characters or "
+                "script). Enable translation or check the label manually."
+            ),
+            citation="N/A",
+        )
 
     def _from_rulebook(self, raw, text, entry: RuleEntry) -> IngredientResult:
         if entry.nature == "always_halal":
@@ -81,6 +108,10 @@ class HalalClassifier:
 
     @staticmethod
     def _aggregate(results: list[IngredientResult]) -> Status:
+        # No classifiable ingredient at all (empty/all-blank input): we have no
+        # basis to declare HALAL, so report SHUBHAH (unsure), never HALAL.
+        if not results:
+            return Status.SHUBHAH
         statuses = {r.status for r in results}
         if Status.HARAM in statuses:
             return Status.HARAM
