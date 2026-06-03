@@ -38,6 +38,7 @@ export default function Home() {
       />
       <Button testID="check" title="Check" onPress={onCheck} loading={mutation.isPending} />
       <Button testID="go-barcode" title="Scan barcode" variant="secondary" onPress={() => router.push("/barcode")} />
+      <Button testID="go-photo" title="Scan photo" variant="secondary" onPress={() => router.push("/photo")} />
       {mutation.isPending ? <ActivityIndicator /> : null}
       {mutation.isError ? (
         <Text testID="error" variant="small" color={colors.haram}>

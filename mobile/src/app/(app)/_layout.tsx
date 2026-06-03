@@ -23,6 +23,7 @@ export default function AppLayout() {
       <Tabs.Screen name="history" options={{ title: "History" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />
       <Tabs.Screen name="barcode" options={{ href: null, title: "Scan barcode" }} />
+      <Tabs.Screen name="photo" options={{ href: null, title: "Scan photo" }} />
     </Tabs>
   );
 }
