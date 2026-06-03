@@ -249,3 +249,21 @@ def test_cors_closed_by_default():
     resp = client.get("/health", headers={"Origin": "http://evil.com"})
     assert resp.status_code == 200
     assert "access-control-allow-origin" not in resp.headers
+
+
+def test_cors_open_when_origins_configured(monkeypatch):
+    # With an allow-list set, the configured origin is echoed back. Reload the app
+    # module so the import-time _cors_origins picks up the env var, then restore.
+    import importlib
+
+    import halal_scanner.api.app as app_mod
+
+    monkeypatch.setenv("HALAL_CORS_ORIGINS", "https://app.example.com")
+    try:
+        importlib.reload(app_mod)
+        fresh = TestClient(app_mod.app)
+        resp = fresh.get("/health", headers={"Origin": "https://app.example.com"})
+        assert resp.headers.get("access-control-allow-origin") == "https://app.example.com"
+    finally:
+        monkeypatch.delenv("HALAL_CORS_ORIGINS", raising=False)
+        importlib.reload(app_mod)  # restore the default-closed app for other tests
