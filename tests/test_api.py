@@ -267,3 +267,27 @@ def test_cors_open_when_origins_configured(monkeypatch):
     finally:
         monkeypatch.delenv("HALAL_CORS_ORIGINS", raising=False)
         importlib.reload(app_mod)  # restore the default-closed app for other tests
+
+
+def test_require_prod_posture_dev_is_noop():
+    from halal_scanner.api.app import _require_prod_posture
+
+    # Non-prod never raises, regardless of the rate-limit value.
+    assert _require_prod_posture("dev", None) is None
+    assert _require_prod_posture("dev", "0") is None
+
+
+def test_require_prod_posture_production_requires_rate_limit():
+    from halal_scanner.api.app import _require_prod_posture
+
+    for bad in (None, "0", "abc"):
+        with pytest.raises(RuntimeError):
+            _require_prod_posture("production", bad)
+
+
+def test_require_prod_posture_production_with_limit_ok():
+    from halal_scanner.api.app import _require_prod_posture
+
+    assert _require_prod_posture("production", "100") is None
+    assert _require_prod_posture("prod", "1") is None
+    assert _require_prod_posture(" PROD ", "5") is None
