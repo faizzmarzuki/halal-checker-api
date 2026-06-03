@@ -11,6 +11,7 @@ import os
 
 import requests
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from ..auth import router as auth_router  # also registers the ORM models
 from ..auth.keys_router import router as keys_router
@@ -46,12 +47,30 @@ def _docs_kwargs(env: str) -> dict:
     return {}
 
 
+def _parse_cors_origins(raw: str) -> list[str]:
+    """Comma-separated allow-list -> list of origins, blanks dropped (L-3)."""
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
 app = FastAPI(
     title="Halal Scanner API",
     description="Classify food ingredients as halal / non-halal (haram) / shubhah.",
     version="0.1.0",
     **_docs_kwargs(os.environ.get("HALAL_ENV", "dev")),
 )
+
+# Default-closed: with no allow-list configured, no CORS middleware is added, so
+# browsers block cross-origin requests (the safe FastAPI default). Auth is via
+# headers (X-API-Key / Bearer), not cookies, so credentials are not enabled (L-3).
+_cors_origins = _parse_cors_origins(os.environ.get("HALAL_CORS_ORIGINS", ""))
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.middleware("http")

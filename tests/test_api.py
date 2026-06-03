@@ -230,3 +230,22 @@ def test_docs_disabled_app_has_none_urls():
     assert prod.openapi_url is None
     dev = FastAPI(**_docs_kwargs("dev"))
     assert dev.docs_url == "/docs"
+
+
+def test_parse_cors_origins():
+    from halal_scanner.api.app import _parse_cors_origins
+
+    assert _parse_cors_origins("https://a.com, https://b.com") == [
+        "https://a.com",
+        "https://b.com",
+    ]
+    assert _parse_cors_origins("") == []
+    assert _parse_cors_origins(" , ") == []
+
+
+def test_cors_closed_by_default():
+    # No HALAL_CORS_ORIGINS in the test env => no CORS middleware => a cross-origin
+    # request gets no allow-origin header (browsers will block it).
+    resp = client.get("/health", headers={"Origin": "http://evil.com"})
+    assert resp.status_code == 200
+    assert "access-control-allow-origin" not in resp.headers
