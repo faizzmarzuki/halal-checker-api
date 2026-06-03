@@ -4,20 +4,20 @@ Resume point for the Halal Checker API. Tell Claude "refer to docs/CHECKPOINT.md
 to pick up exactly here.
 
 ## Where things stand
-- **SP11–SP20 are merged into `main`** (PRs #1–#10 closed; branches deleted).
+- **SP11–SP22 are merged into `main`** (PRs #1–#12 closed; branches deleted).
   QA security track is done bar infra-gated items (see Open work); product so far:
   scan history (SP16, backend), the mobile app foundation (SP17), and the mobile
   classify screen (SP18).
   Stacked-PR footgun, learned the hard way: a stacked PR's base is the branch
   below it, so merging it lands changes on that branch, not `main` — retarget
   each PR's base to `main` (in order) before merging.
-- **In flight:** `sub-project-22-expo-sdk-54` (from `main`) — pin Expo to SDK 54
-  (the user's latest Expo Go only supports 54).
+- **In flight:** `sub-project-23-design-system` (from `main`) — cream/light design system +
+  restyle of every mobile screen.
 - Private GitHub repo: `https://github.com/faizzmarzuki/halal-checker-api`.
   `gh` CLI is NOT installed locally — PRs are created/merged via the GitHub REST
   API using the stored git credential.
 - **Tests:** backend `179 passing` (+2 skipped — Pillow-gated OCR; install the
-  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `30 passing`,
+  `ocr` extra), `.venv/Scripts/python -m pytest -q`. Mobile: `34 passing`,
   `cd mobile && npm test` (also `npm run typecheck`).
 - **Run the API:** set `HALAL_JWT_SECRET` then
   `.venv/Scripts/python -m uvicorn halal_scanner.api.app:app --reload` → http://localhost:8000/docs
@@ -111,6 +111,14 @@ Mobile app (`mobile/`, React Native + Expo, iOS + Android):
   (`Platform.OS === "web"`), secure-store on native. Without it the app hung on
   the loading spinner on web (expo-secure-store is native-only). Unblocked
   web-browser testing.
+- **SP23 Design System + Restyle** — cream/light design system: `src/theme/tokens.ts`
+  (colours / spacing / radii / type + `verdictColor`) and reusable
+  `src/components/ui/` primitives (`Screen`, `Text`/`Heading`, `Button` pill with
+  primary/secondary/accent + loading, underline `Input`, `Card`). Every screen
+  (auth / Home / VerdictResult / History / Settings + tab bar) rebuilt on these —
+  bold ALL-CAPS headings, pill buttons, terracotta/green accents, verdict colours.
+  All test IDs preserved so the existing tests stay green (34 total with the new
+  tokens/ui tests). Custom display font is a fast-follow; camera screens next.
 - **SP21/SP22 Expo SDK pin** — `create-expo-app` scaffolded on SDK 56 (the npm
   `latest`), but the user's latest **Expo Go only supports SDK 54**. Pinned
   56→55 (SP21) then 55→54 (SP22) via `expo install --fix` + realigned devDeps
@@ -169,12 +177,12 @@ Still open:
 - **LOW** — HSTS at the proxy (the rest of the LOW items are done).
 
 ## Suggested next step
-**SP20 — Barcode + image scanning** (camera): `/scan-barcode` (expo-camera /
-barcode scanner or manual entry) and `/scan-image` (camera/gallery → OCR), both
-reusing `VerdictResult`. Best done after the user tests the current screens
-on-device and shares the visual **design/vibe** (camera UI is very visual). After
-that, a **design pass** across all screens, and a backend **deploy** so the app
-has a stable URL.
+**SP24 — Barcode + image scanning** (camera), built on the SP23 design system:
+`/scan-barcode` (expo-camera barcode scanner or manual entry) and `/scan-image`
+(camera/gallery → OCR, raw-bytes POST), both reusing `VerdictResult`.
+expo-camera/expo-image-picker work in Expo Go (SDK 54). Fast-follows: a custom
+heavy display font (`expo-font`), and a backend **deploy** (Render/Fly/Railway)
+so the app has a stable URL instead of LAN/tunnel.
 
 Backend backlog (infra-gated/accepted only): MED-1 (Redis shared limiter, when
 scaling out), MED-3 (LLM prompt-injection, accepted), HSTS (proxy). A backend
