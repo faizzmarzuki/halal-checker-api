@@ -1,0 +1,10 @@
+.git/
+.venv/
+mobile/
+tests/
+docs/
+examples/
+__pycache__/
+*.db
+*.pyc
+QA_SECURITY_FINDINGS.txt

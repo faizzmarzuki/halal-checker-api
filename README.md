@@ -139,3 +139,27 @@ server (`gemma4:latest`); both degrade gracefully when it is unreachable.
 
 All tests are network-free and binary-free: the LLM, OpenFoodFacts, and OCR
 backends are stubbed, so the suite runs anywhere with no external services.
+
+## Deploy to Render
+
+The repo ships a `render.yaml` Blueprint that provisions a Docker web service
+plus a managed PostgreSQL database, with Tesseract OCR baked into the image so
+`/scan-image` works in production.
+
+1. Push the branch to GitHub.
+2. In the Render dashboard: **New → Blueprint**, connect this repo, and apply
+   `render.yaml`. Render creates the `halal-scanner-api` web service and the
+   `halal-db` Postgres instance.
+3. Fill the two manual env vars (declared `sync: false`):
+   - `HALAL_ADMIN_EMAILS` — your account email, to get the `admin` role.
+   - `HALAL_CORS_ORIGINS` — leave blank unless testing an Expo **web** build
+     against prod (e.g. `https://your-web-build`); native Expo Go needs no CORS.
+4. Deploy. The service boots with `HALAL_ENV=production` (docs hidden, rate
+   limiting enforced), a generated `HALAL_JWT_SECRET`, and `HALAL_DATABASE_URL`
+   wired from the managed Postgres. `create_all` builds the schema on first boot.
+
+Notes:
+- Free tier spins down after ~15 min idle; the first request after idle takes
+  ~30–60s (cold start).
+- Point the mobile app at the deployed URL by setting `EXPO_PUBLIC_API_URL` in
+  `mobile/.env` to `https://halal-scanner-api.onrender.com`.
