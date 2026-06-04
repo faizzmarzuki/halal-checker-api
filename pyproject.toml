@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "halal-scanner"
 version = "0.1.0"
@@ -20,6 +24,15 @@ dev = ["pytest>=8.0", "httpx>=0.27"]
 ocr = ["pytesseract>=0.3.10", "Pillow>=10.0"]
 # PostgreSQL driver for production deploys (HALAL_DATABASE_URL=postgresql://…).
 postgres = ["psycopg[binary]>=3.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Ship the rulebook YAML inside the wheel. Without this, a src-layout build with
+# no .git in the context (e.g. the Docker build) drops non-.py files and the app
+# crashes at import (Rulebook.load_default -> FileNotFoundError).
+[tool.setuptools.package-data]
+halal_scanner = ["data/*.yaml"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
